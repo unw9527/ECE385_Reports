@@ -1,0 +1,262 @@
+\documentclass[11pt]{article}
+% \usepackage[bottom=1.0in]{geometry}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage[backref]{hyperref}
+\pagestyle{fancy}
+\renewcommand{\headrulewidth}{0pt}
+
+\begin{document}
+\begin{titlepage}
+    \centering
+    {\Huge\bfseries ECE385\\\Large Fall 2021\\\Large Experiment 9}
+
+    \vspace{1cm}
+    
+    {\LARGE\bfseries SOC with Advanced Encryption Standard in SystemVerilog}
+    
+    \vspace{2cm}
+    
+    {\Large Kunle Li\\3190112150\\Zifei Han\\3190110304}
+    
+    \vfill
+    
+    {\large\itshape Section: L1 D225\\TA: Lianjie Wang}
+    \end{titlepage}
+\lhead{ECE385}
+\chead{Lab 9}
+\rhead{Li \& Han}
+
+\tableofcontents
+\section{Introduction}
+In this lab, we implemented an AES encryption and decryption algorithm with the former in the software and the latter in the hardware. AES gets a message to encrypt and a corresponding key. Through several rounds of SubBytes, ShiftRows, MixColumns, AddRoundKey, the message gets encrypted. And through the inverse process of some of these functions, that same message would get decrypted using the key schedule generated.
+
+\section{Written Description and Diagrams of the AES encryptor/decryptor}
+\subsection{Written description of the software encryptor}
+Basically, all C code is executed on the NIOS II processor, including KeyExpansion, AddRoundKey. etc. The processor also controls what messages to be sent to the hardware. It interacts with the avalon bus and sends the encrypted message to the bus and receives the decrypted message.
+
+The functionality is, when executing the code, the terminal will first ask the user to input a message as well as a key of up to 32 characters, then the terminal will display the encrypted message for the input message. This process involves the calling of charsToHex function to convert the input strings to ASCII values. Afterwards, NIOS II will expand the key with KeyExpansion to generate the other 10 round keys. The code will then go to AddRoundKey once and goes into the 9 loops for SubBytes, ShiftRows, MixColumns, and AddroundKey.
+\begin{itemize}
+    \item AddRoundKey: bitwise XOR the message with the generated round key.
+    \item SubByte: takes the message bytes and switches then out from the provided matrix of Rijndael bytes.
+    \item ShiftRows: do a circular left shift on all rows with row 0 being shifted 0 time, and row 1 shifting 1 time, and so on.
+    \item MixColumns: multiply each column by a set matrix in the GF($2^8$) to get the new column.
+\end{itemize}
+
+\subsection{Written description of the hardware decryptor}
+The hardware decryption simply performs the inverse process of encryption. The hardware begins to decrypt when the software encryptor sends an \verb|AES_start| signal. Decryption will first AddRoundKey before going into the 9 loops of InvShiftRows, InvSubBytes, AddRoundKey, InvMixColumns. Then finally, it will go through a final round of InvShiftRows, InvSubBytes, and AddRoundKey before sending the data back to the console to be printed out. For the finite state machine, we use a counter in order to keep track of which round we are in and send signals back to tell if we have finished.
+
+\subsection{Written description of the hardware/software interface}
+avalon\_aes\_interface.sv serves as a bridge between the hardware and the software. We simply create 16 32-bit registers for the register file. And this is the register map that we refer to. Specifically, the key will be stored in registers 0~3; the encrypted message will be stored in registers 4~7; the decrypted message will be stored in registers 8~11. Register 14 is used by the C program to signal hardware decryption to start the process. Register 15 is used by the hardware decryption module to signal the C program that it is done decrypting the message. Any other data are sent through the unused registers, registers 12 and 13. See Fig.\ref{avalon} for details.
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=15cm]{avalon.png}
+    \caption{AES decryption core interface}
+    \label{avalon}
+\end{figure}
+
+The Software would send a start signal to the register 14 and that holds the bit that tells the state machine to start. After the decryption is done, register 15 will receive an active high value, and the NIOS II will move on to grab data and display on the console. 
+
+%%% 2-4
+\subsection{Block Diagram}
+The block diagram of toplevel and avalon\_aes\_interface.sv is shown in Fig.\ref{2_4} and Fig.\ref{2_4+}.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=15cm]{toplevel_block_diagram.png}
+    \caption{Toplevel Block Diagram}
+    \label{2_4}
+\end{figure}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=10cm]{avalon_aes_interface_block_diagram.png}
+    \caption{avalon\_aes\_interface.sv Block Diagram}
+    \label{2_4+}
+\end{figure}
+
+%%% 2-5
+\subsection{State Diagram of AES decryptor controller}
+The State Diagram of AES decryptor controller is shown in Fig.\ref{2_5}.
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[height=0.9\textheight]{state_diagram_AES_module.png}
+    \caption{State Diagram of AES Decryptor Controller}
+    \label{2_5}
+\end{figure}
+
+
+\subsection{Module Descriptions}
+\textbf{Module: lab9\_top.sv}\\
+\\
+Inputs: CLOCK\_50, [1:0] KEY\\
+\\
+Outputs: [7:0] LEDG, [17:0] LEDR, [6:0] HEX0, [6:0] HEX1, [6:0] HEX2, [6:0] HEX3, [6:0] HEX4, [6:0] HEX5, [6:0] HEX6, [6:0] HEX7, [12:0] DRAM\_ADDR, [1:0] DRAM\_BA, DRAM\_CAS\_N, DRAM\_CKE, DRAM\_CS\_N, [31:0] DRAM\_DQ, [3:0] DRAM\_DQM, DRAM\_RAS\_N, DRAM\_WE\_N, DRAM\_CLK
+\\
+\\
+Description: This module is the top-level of this lab. It connects all the corresponding wires of hexdrivers and sdram. 
+\\ \\
+Purpose: This module serves as the top-level entity and instantiates the project.
+\\
+\\
+\textbf{Module: SubBytes.sv}\\
+\\
+Inputs: clk, [7:0] in
+\\
+\\
+Outputs: [7:0] out
+\\
+\\
+Description: Transform the input bytes. It takes 8 bits of input and output 8 bits of output with modified values.
+\\ \\
+Purpose: Perform the transform in the Rijndael’s finite field.
+\\
+\\
+\textbf{Module: KeyExpansion.sv}\\
+\\
+Inputs: clk, [127:0] Cipherkey\\
+\\
+Outputs: [1407:0] KeySchedule
+\\
+\\
+Description: Generates a RoundKey at a time based on the previous 
+RoundKey.
+\\ \\
+Purpose: The round key generated is used in the addRoundKey module where each round key is XORed with a temporary message.
+\\
+\\
+\textbf{Module: InvShiftRows.sv}\\
+\\
+Inputs: [127:0] data\_in\\
+\\
+Outputs: [127:0] data\_out\\
+\\
+Description: Performs circular right shift, with the first row unchanged, the 2nd row shifted right by 8 bits, the 3rd row shifted right by 16 bits and the 4th row shifted right by 24 bits.
+\\ \\
+Purpose: This module performs circular right shift (inverse shift rows operations) with the input data in each round. 
+\\ 
+\\
+\textbf{Module: InvMixColumns.sv}\\
+\\
+Inputs: [31:0] in\\
+\\
+Outputs: [31:0] out
+\\
+\\
+Description: The inverse operation of MixColumns. It does inverse multiplication with 1 column of decrypted message at a time.
+\\ \\
+Purpose: This module multiplies each column by matrix as shown in GF($2^8$) in each round. 
+\\
+\\
+% \textbf{Module: AddRoundKey.sv}\\
+% \\
+% Inputs: [127:0] state, [127:0] round\_key\\
+% \\
+% Outputs: [127:0] result
+% \\
+% \\
+% Description \& Purpose: This module XORs each byte with the corresponding byte from the current RoundKey in each round. 
+% \\
+% \\
+\textbf{Module: avalon\_aes\_interface.sv}\\
+\\
+Inputs: Clk, Reset, AVL\_READ, AVL\_WRITE, AVL\_CS, [3:0] AVL\_BYTE\_EN, [3:0] AVL\_ADDR, [31:0] AVL\_WRITEDATA\\
+\\
+Outputs: [31:0] AVL\_READDATA, [31:0] EXPORT\_DATA\\
+\\
+Description: This module creates a register file of 16 registers. \\
+\\Purpose: Serves as the interface between software and hardware.
+\\
+\\
+% \textbf{Module: Controller.sv}\\
+% \\
+% Inputs: Clk, Reset, Start\\
+% \\
+% Outputs: [3:0] Key, [2:0] Function, [2:0] Column, Done, Reg\_Load\\
+% \\
+% Description: The controller which uses a state machine shown in Section 2.5, Figure 6 to realize the hardware functionality.
+% \\
+% \\Purpose: This module serves as the hardware controller.
+% \\
+\textbf{Module: HexDriver.sv}\\
+\\
+Inputs: In0[3:0] \\
+\\
+Outputs: Out0[6:0]\\
+\\
+Description: Displays the input to the module to the hexdisplays on the DE2 board.\\
+Purpose: Displays the keyboard input ASCII character onto the hex display
+
+
+%%%%%% 3
+\section{Annotated Simulation of the AES decrypt}
+The code of testbench.sv is shown in Fig.\ref{3_1}, and the corresponding simulation waveform is shown in Fig.\ref{3_2} and Fig.\ref{3_3}, in which the Key, the Encrypt Message and the Decrypt Message are notated.
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=15cm]{testbench_code.png}
+    \caption{Code of testbench.sv}
+    \label{3_1}
+\end{figure}
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=15cm]{TB1.png}
+    \caption{Initial Part of Simulation Waveform of testbench.sv}
+    \label{3_2}
+\end{figure}
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=15cm]{TB2.png}
+    \caption{Final Part of Simulation Waveform of testbench.sv}
+    \label{3_3}
+\end{figure}
+
+
+
+
+\section{Answers to Post-lab questions}
+\subsection{Fill out the design resources and statistics table.}
+The design resources and statistics table is shown in Fig.\ref{4_1}.
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=5cm]{design_resources_and_statistics_table.png}
+    \caption{Design Resources and Statistics Table}
+    \label{4_1}
+\end{figure}
+
+%%% 4-2
+\subsection{Which would you expect to be faster to complete encryption / decryption, the software or hardware? Is this what your results show?}
+I would expect that it would be faster to complete encryption and decryption processes for hardware compared with software. This is indicated by the benchmark speed outputs for decryption process: the speed of software is slower than 1 KB/s, while the speed of the hardware is nearly 150 KB/s. As the encryption process takes similar steps as decryption, only with discrepancy in the “direction”, we may assume that hardware will also have faster performance in encryption.
+
+\subsection{If you wanted to speed up the hardware, what would you do?}
+\begin{enumerate}
+    \item Use more instances of the InvMixedColumns module. In this way, the calculation will be faster since the module will not need to wait for the intermediate output of itself.
+    \item Speed up the clock.
+\end{enumerate}
+
+\section{Conclusion}
+In lab 9, we have realized a 128-bit Advanced Encryption Standard (AES) encryptor / decryptor, with the encryption process implemented utilizing C code as software and the decryption process implemented utilizing SystemVerilog code as hardware. The connection between software and hardware parts is built by the toplevel module under the environment of Platform Designer and NOIS II. The system is eventually enabled not only to encrypt and decrypt messages with the given key but also to show the speed of each process in KB/s. 
+
+During our implementation, initially we have been informed that the speed of decryption in hardware is not so fast. We eventually find that the for loops in C code function “decrypt” result in the phenomenon, and the speed significantly rises after we replace all the for loops with lines of codes, each line indicating one cycle of the loop.
+
+
+% \begin{table}[h]
+%     \centering
+%     \begin{tabular}{|c|c|}
+%         \hline
+%         ABC & Z \\ \hline
+%         000 & 0 \\ \hline
+%         001 & 1 \\ \hline
+%         010 & 0 \\ \hline
+%         011 & 0 \\ \hline
+%         100 & 0 \\ \hline
+%         101 & 1 \\ \hline
+%         110 & 1 \\ \hline
+%         111 & 1 \\ \hline
+%     \end{tabular}
+%     \caption{Truth table for Part A.}
+%     \label{truthA}
+% \end{table}
+
+
+
+\end{document}

@@ -1,0 +1,213 @@
+\documentclass[11pt]{article}
+\usepackage[bottom=1.0in]{geometry}
+% \usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage[backref]{hyperref}
+\pagestyle{fancy}
+\renewcommand{\headrulewidth}{0pt}
+
+\begin{document}
+\begin{titlepage}
+    \centering
+    {\Huge\bfseries ECE385\\\Large Fall 2021\\\Large Experiment 1}
+
+    \vspace{1cm}
+    
+    {\LARGE\bfseries Introductory Experiment}
+    
+    \vspace{2cm}
+    
+    {\Large Kunle Li\\3190112150}
+    
+    \vfill
+    
+    {\large\itshape Section: L1 D225\\TA: Lianjie Wang}
+    \end{titlepage}
+\lhead{ECE385}
+\chead{Lab 1}
+\rhead{Kunle Li}
+
+\section{Introduction}
+This lab requires me to virtually build a 2-to-1 MUX, with two inputs A and C and one select gate B. Then, I need to modify the circuit to substitute NAND gates for AND/OR gates and the NOT gate.
+
+Besides, I utilize the K-map to add one more min-term to the circuit to eliminate Static-1 Hazard, which otherwise will result in a delay and glitch when measuring the waveform of the circuit.
+
+\section{Operations and diagrams of the circuits}
+\begin{figure}[h]
+    \centering
+    \includegraphics{part_A.png}
+    \caption{The circuit from Part A}
+    \label{a}
+\end{figure}
+Fig.\ref{a} is an overlook of the circuit from part A of the prelab. In this setting, I utilize 4 NAND gates. The output $Z=AB+B'C$. The Static-1 Hazard may happen when both A and C are 1 and we switch B from one end to the other, since the number of gates is different when the signal travels from A to Z and C to Z.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics{part_B.png}
+    \caption{The circuit from Part B}
+    \label{b}
+\end{figure}
+Fig.\ref{b} is an overlook of the circuit from part B of the prelab. In this setting, I utilize 7 NAND gates. The output $Z=AB+B'C+AC$. The truth table of this circuit is the same as the circuit above. But the addition of the min-term AC can help get rid of the Static-1 Hazard.
+
+\section{Component layout sheet}
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.1]{layout.jpg}
+    \caption{The layout sheet of the MUX}
+    \label{layout}
+\end{figure}
+
+\section{Truth tables}
+% \begin{table}[h]
+%     \centering
+%     \begin{tabular}{|c|c|}
+%         \hline
+%         ABC & Z \\ \hline
+%         000 & 0 \\ \hline
+%         001 & 1 \\ \hline
+%         010 & 0 \\ \hline
+%         011 & 0 \\ \hline
+%         100 & 0 \\ \hline
+%         101 & 1 \\ \hline
+%         110 & 1 \\ \hline
+%         111 & 1 \\ \hline
+%     \end{tabular}
+%     \caption{Truth table for Part A.}
+%     \label{truthA}
+% \end{table}
+% \begin{table}[h]
+%     \centering
+%     \begin{tabular}{|c|c|}
+%         \hline
+%         ABC & Z \\ \hline
+%         000 & 0 \\ \hline
+%         001 & 1 \\ \hline
+%         010 & 0 \\ \hline
+%         011 & 0 \\ \hline
+%         100 & 0 \\ \hline
+%         101 & 1 \\ \hline
+%         110 & 1 \\ \hline
+%         111 & 1 \\ \hline
+%     \end{tabular}
+%     \caption{Truth table for both Part B.}
+%     \label{truthB}
+% \end{table}
+\begin{table}[h]
+	\begin{minipage}[t]{0.45\textwidth}
+		\centering
+		
+		\begin{tabular}{|c|c|}
+            \hline
+            ABC & Z \\ \hline
+            000 & 0 \\ \hline
+            001 & 1 \\ \hline
+            010 & 0 \\ \hline
+            011 & 0 \\ \hline
+            100 & 0 \\ \hline
+            101 & 1 \\ \hline
+            110 & 1 \\ \hline
+            111 & 1 \\ \hline
+        \end{tabular}
+        \caption{Truth table for Part A.}
+        \label{truthA}
+	\end{minipage}
+	\begin{minipage}[t]{0.45\textwidth}
+		\centering
+		
+		\begin{tabular}{|c|c|}
+            \hline
+            ABC & Z \\ \hline
+            000 & 0 \\ \hline
+            001 & 1 \\ \hline
+            010 & 0 \\ \hline
+            011 & 0 \\ \hline
+            100 & 0 \\ \hline
+            101 & 1 \\ \hline
+            110 & 1 \\ \hline
+            111 & 1 \\ \hline
+        \end{tabular}
+        \caption{Truth table for both Part B.}
+        \label{truthB}
+	\end{minipage}
+	
+\end{table}
+
+
+
+\section{Oscilloscope printouts}
+\begin{figure}[hp]
+    \centering
+    \includegraphics[scale=0.5]{2-1-mux naive.png}
+    \caption{The printout for Part 2}
+    \label{printout2}
+    \includegraphics[scale=0.5]{2-1-mux redundant term (AC).png}
+    \caption{The printout for Part 3}
+    \label{printout3}
+\end{figure}
+
+Fig.\ref{printout2} is the printout for Part 2. And Fig.\ref{printout3} is the printout for Part 3.
+
+\section{Answers to prelab questions}
+\subsection{Why can not all groups observe Static-1 Hazards?}
+Though delay exists theoretically, the delayed time may be too short to be observed. Besides, Quartus might have some optimization to prevent us from seeing such a "glitch".
+
+\subsection{Why does the hazard appear when we add more inverters or capacitors?}
+More electronic devices added means more gate delay. The delay will be enlarged so that it is easier for us to observe the "glitch".
+
+\section{Answers to lab questions}
+\subsection{Does part B respond like part A?}
+The truth table for part B can be seen at Table.\ref{truthB}.
+
+No, part B does not respond like part A. Part A has glitches, while part B does not.
+
+\subsection{For the circuit of part A of the pre-lab, at which edge (rising/falling) of the input B are we more likely to observe a glitch at the output?}
+Falling edge. Because the falling edge causes a longer period of time delay due to the property of the NAND gate. As a result, it is more likely that we see the glitch at the falling edge.
+
+
+\section{Answers to post-lab questions}
+\subsection{How long does it take the output Z to stabilize on the falling edge of B (in ns)? How long does it take on the rising edge (in ns)? Are there any potential glitches in the output, Z? If so, explain what makes these glitches occur.}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.2]{timedelay.jpg}
+    \caption{Time diagram}
+    \label{time_delay}
+\end{figure}
+
+The time diagram is shown as Fig.\ref{time_delay}.
+
+It takes at maximum 60ns for Z to stablize on the falling edge of B. And it takes at maximum 40ns on the rising edge of B.
+
+Yes, there are some potential glitches for Z. The glitch may happen when both A and C are 1 and we switch B from one end to the other, since the number of gates is different when the signal travels from A to Z and C to Z.
+
+\subsection{What makes the debouncer behave like a switch and how the ill effect of mechanical contact bounces is eliminated?}
+When the switch is pointing up, the output of the upper gate will be 1, which together with the lower voltage source drive the output of the lower gate (QN) to 0. Then the circuit becomes stable.
+
+When the switch is between the two contacts, the output (Q) is still stable because of the loop circuit.
+
+When the switch is pointing down, Q will be stablized to 0 while QN will be stabilized to 1. 
+
+In this way, the debouncer behaves like a switch and the bounces are eliminated.
+
+\section{Answers to General Guide questions}
+\subsection{GG.6}
+\subsubsection{What is the advantage of a larger noise immunity?}
+If the noise immunitity of a gate is large, then this gate's logic value is less likely to be affected, which makes it more accurate.
+\subsubsection{Why is the last inverter observed rather than simply the first?}
+Because noise pulses accumulate after three inverters, the influence of noises gets enlarged. Thus, the noise immunitity observed at the last inverter will yield a more accurate result.
+\subsubsection{Given a graph of output voltage (VOUT) vs. input voltage (VIN) for an inverter, how would you calculate the noise immunity for the inverter?}
+\begin{enumerate}
+    \item Calculate the difference $D1$ between the center of the nominal range of logic ``0'' and VIN that makes VOUT at its nominal range for logic ``1'';
+    \item Calculate the difference $D2$ between the center of the nominal range of logic ``1'' and VIN that makes VOUT at its nominal range for logic ``0'';
+    \item The noise immunity is equal to the smaller one of $\{D1, D2\}$. 
+\end{enumerate}
+
+\subsection{GG.29}
+Because sharing the resistor among many LEDs will cause a large current through the resistor, in turn may burn the resistor. Besides, some LEDs might not turn on, since different LEDs have different turn-on voltages, while the voltages applied on each of the LEDs are the same by KVL.
+\section{Conclusion}
+In this lab, we built a 2-to-1 MUX (where the output $Z=AB+B'C$) using only NAND gates. We realized that even with one gate delay, an obvious glitch can be observed. Besides, by adding one more min-term in the K-map (as a result, the output $Z=AB+B'C+AC$), we could successfully eliminate the glitch (Static-1 Hazard). So in the future work, we may consider using the K-map to help get rid of glitches.
+  
+
+\end{document}

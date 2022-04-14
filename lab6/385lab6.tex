@@ -1,0 +1,563 @@
+\documentclass[11pt]{article}
+% \usepackage[bottom=1.0in]{geometry}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage[backref]{hyperref}
+\usepackage{xcolor} % !!! Remember to use this package if adding different colors
+\usepackage{listings}
+\pagestyle{fancy}
+\renewcommand{\headrulewidth}{0pt}
+
+
+\lstset{ %
+language=Verilog,                % the language of the code
+basicstyle=\footnotesize,           % the size of the fonts that are used for the code
+numbers=left,                   % where to put the line-numbers
+numberstyle=\tiny\color{gray},  % the style that is used for the line-numbers
+stepnumber=1,                   % the step between two line-numbers. If it's 1, each line 
+                                % will be numbered
+numbersep=5pt,                  % how far the line-numbers are from the code
+backgroundcolor=\color{white},      % choose the background color. You must add \usepackage{color}
+showspaces=false,               % show spaces adding particular underscores
+showstringspaces=false,         % underline spaces within strings
+showtabs=false,                 % show tabs within strings adding particular underscores
+frame=single,                   % adds a frame around the code
+rulecolor=\color{black},        % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. commens (green here))
+tabsize=2,                      % sets default tabsize to 2 spaces
+captionpos=b,                   % sets the caption-position to bottom
+breaklines=true,                % sets automatic line breaking
+breakatwhitespace=false,        % sets if automatic breaks should only happen at whitespace
+title=\lstname,                 % show the filename of files included with \lstinputlisting;
+                                % also try caption instead of title
+keywordstyle=\color{blue},          % keyword style
+commentstyle=\color{teal},       % comment style
+stringstyle=\color{mauve},         % string literal style
+escapeinside={\%*}{*)},            % if you want to add LaTeX within your code
+morekeywords={*,...}               % if you want to add more keywords to the set
+}
+
+\begin{document}
+\begin{titlepage}
+    \centering
+    {\Huge\bfseries ECE385\\\Large Fall 2021\\\Large Experiment 6}
+
+    \vspace{1cm}
+    
+    {\LARGE\bfseries Simple Computer SLC-3.2 in SystemVerilog}
+    
+    \vspace{2cm}
+    
+    {\Large Kunle Li\\3190112150\\Zifei Han\\3190110304}
+     
+    \vfill
+    
+    {\large\itshape Section: L1 D225\\TA: Lianjie Wang}
+    \end{titlepage}
+\lhead{ECE385}
+\chead{Lab 6}
+\rhead{Li \& Han}
+
+\tableofcontents
+\section{Introduction}
+In this lab, we design a simplified version of LC-3 processor that we have learnt in ECE120 using SystemVerilog. This SLC-3 we design is capable of performing three steps to finish some operations like ADD, AND, JMP, etc. in LC-3. The three steps include FETCH, DECODE and EXECUTE, where FETCH involves retrieving the desired instructions; DECODE decides which operation should be chosen; EXECUTE performs all details of the chosen operation.
+
+There are mainly three components of SLC-3: a CPU, the memory, and MEM2IO, which controls the I/O of SLC-3.
+
+\section{Written Description and Diagrams of SLC-3}
+\subsection{Summary of Operation}
+There are mainly three operations in SLC-3: FETCH, DECODE and EXECUTE, which are described as follows:
+
+\begin{itemize}
+    \item \textbf{FETCH}: PC goes to MAR. Then the instruction specified by the address stored in MAR is loaded into MDR. Then MDR is loaded into IR, and PC increments by 1.
+    \item \textbf{DECODE}: reads the instruction from IR, stores it in the Instruction Sequencer / Decoder to decode the instruction. The ISDU module will use the opcode to determine which state to go to.
+    \item \textbf{EXECUTE}: Perform the operation based on the signals from the Instruction Sequencer/Decoder and write the result to the destination register or memory.
+\end{itemize}
+
+\subsection{Describe in words how the SLC-3 performs its functions}
+After entering the EXECUTE state, the functions will be performed following the state machine specified in ISDU.sv.
+
+Below is a brief summary of the functions:
+\paragraph{ADD} Adds the contents of SR1 and SR2, and stores the result to DR. Sets the status register.
+\paragraph{ADDi} Add Immediate. Adds the contents of SR to the sign-extended value imm5, and stores the result to DR. Sets the status register.
+
+\paragraph{AND} ANDs the contents of SR1 with SR2, and stores the result to DR. Sets the status register.
+
+\paragraph{ANDi} And Immediate. ANDs the contents of SR with the sign-extended value imm5, and stores the result to DR. Sets the status register.
+
+\paragraph{NOT} Negates SR and stores the result to DR. Sets the status register.
+
+\paragraph{BR} Branch. If any of the condition codes match the condition stored in the status register, takes the branch; otherwise, continues execution. (An unconditional jump can be specified by setting NZP to 111.) Branch location is determined by adding the sign-extended PCoffset9 to the PC.
+
+\paragraph{JMP} Jump. Copies memory address from BaseR to PC.
+
+\paragraph{JSR} Jump to Subroutine. Stores current PC to R(7), adds sign-extended PCoffset11 to PC.
+
+\paragraph{LDR} Load using Register offset addressing. Loads DR with memory contents pointed to by (BaseR + SEXT(offset6)). Sets the status register.
+
+\paragraph{STR} Store using Register offset addressing. Stores the contents of SR at the memory location pointed to by (BaseR + SEXT(offset6)).
+
+\paragraph{PAUSE} Pauses execution until Continue is asserted by the user. Execution should only unpause if Continue is asserted during the current pause instruction; that is, when multiple pause instructions are encountered, only one should be “cleared” per press of Continue. While paused, ledVect12 is displayed on the board LEDs. See I/O Specification section for usage notes.
+
+\subsection{Block Diagram of slc3.sv}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.6]{block_diagram_scl3.jpg}
+    \caption{Block Diagram for slc3.sv}
+    \label{block_diagram}
+\end{figure}
+
+Please refer to Fig.\ref{block_diagram} for this part.
+
+
+\subsection{Written Description of all .sv modules}
+
+\begin{itemize}
+    \item 
+    \begin{itemize}
+        \item \textbf{Module: datapath.sv}
+        \item Inputs: Clk, Reset,
+        LD\_MAR, LD\_MDR, LD\_IR, LD\_BEN, LD\_CC, LD\_REG, LD\_PC, LD\_LED,
+        DRMUX, SR1MUX, SR2MUX, ADDR1MUX,
+        GatePC, GateMDR, GateALU, GateMARMUX,
+        MIO\_EN,
+        [1:0] PCMUX, ADDR2MUX, ALUK,
+        [15:0]MDR\_In,
+        \item Outputs: BEN,
+        [11:0]LED,
+        [15:0]IR, MAR, MDR, PC
+        \item Description: This file controls the flow of data in SLC-3.
+        \item Purpose: Controls the flow of data in SLC-3.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: ALU.sv}
+        \item Inputs: [15:0] A,B, [1:0]ALUK
+        \item Outputs: [15:0] ALU\_Out
+        \item Description: This file contains the implementation of the ALU module, which performs 4 functions (A+B, A\&B, ~A, A).
+        \item Purpose: Perform 4 basic functions (see above).
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: Mux.sv}
+        \item Inputs: Select,
+       [i-1:0] A,
+        [i-1:0] B,
+        \item Outputs: [i-1:0] Out
+        \item Description: This file contains three types of MUXes: 2-to-1 MUX, 4-to-1 MUX and a one-hot MUX which replaces the four tristate buffers connected to the bus.
+        \item Purpose: Realize the MUX logic.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: Register.sv}
+        \item Inputs: Clk,
+        Reset,
+         Load,
+         [i-1:0]In,
+        \item Outputs: [i-1:0]Out
+        \item Description: This module is where we usually store data. We implement it in a way that the register can take input of arbitrary length.
+        \item Purpose: Stores the data.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: HexDriver.sv}
+        \item Inputs: [3:0]  In0
+        \item Outputs: [6:0]  Out0
+        \item Description: This module drives the LED display on the FPGA board.
+        \item Purpose: Guarantee that the FPGA board can display the operands and the result.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: RegFile.sv}
+        \item Inputs: clk, reset,
+        [15:0] BUS,
+        [2:0] DRMUX\_OUT, SR1\_MUX\_OUT, SR2,
+        LD\_REG, 
+        \item Outputs: [15:0] SR2\_OUT, SR1\_OUT
+        \item Description: This module is the Register File in SLC-3.
+        \item Purpose: Controls the input of ALU and ADDR1MUX.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: ISDU.sv}
+        \item Inputs: Clk, 
+        Reset,
+        Run,
+        Continue,
+[3:0] Opcode, 
+IR\_5,
+IR\_11,
+BEN,
+        \item Outputs: LD\_MAR,
+        LD\_MDR,
+        LD\_IR,
+        LD\_BEN,
+        LD\_CC,
+        LD\_REG,
+        LD\_PC,
+        LD\_LED, 
+GatePC,
+        GateMDR,
+        GateALU,
+        GateMARMUX,
+[1:0]  PCMUX,
+DRMUX,
+        SR1MUX,
+        SR2MUX,
+        ADDR1MUX,
+[1:0]  ADDR2MUX,
+        ALUK,
+Mem\_CE,
+        Mem\_UB,
+        Mem\_LB,
+        Mem\_OE,
+        Mem\_WE
+        \item Description: ISDU uses a state machine that controls the whole processor. It goes from one state to another depending on inputs and current state. It is a combination of the Moore and Mealy state machine. Based on the OPCODE, ISDU looks up the state diagram to enter the state that matches the instruction. As a result, the data correctly flows through the data path to the BUS, and from there to memory.
+        \item Purpose: Control the operations performed based on the state machine we design.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: Mem2IO.sv}
+        \item Inputs: Clk, 
+        Reset,
+        ADDR, 
+        CE, UB, LB, OE, WE,
+        Switches,
+        [15:0] Data\_from\_CPU, Data\_from\_SRAM,
+        \item Outputs: [15:0] Data\_to\_CPU, Data\_to\_SRAM,
+        [3:0]  HEX0, HEX1, HEX2, HEX3 
+        \item Description: MEM2IO manages all I/O with the DE2 physical I/O devices, namely, the switches and 7-segment displays. For input, MEM2IO will load data from switches if the address is xFFFF, and from SRAM otherwise. For output, MEM2IO will write the data to LEDs when the address is xFFFF and WE is active, and from CPU to SRAM otherwise.
+        \item Purpose: We can access the memory and the CPU from here. We can also connect the data to the switches and 7-segment displays.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: lab6\_toplevel.sv}
+        \item Inputs: [15:0] S, Clk, Reset, Run, Continue, [15:0] Data
+        \item Outputs: [11:0] LED, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, HEX6, HEX7, CE, UB, LB, OE, WE, [19:0] ADDR
+        \item Description: The toplevel module.
+        \item Purpose: This module is used to integrate all components of SLC-3 to work as a whole.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: Synchronizer.sv}
+        \item Inputs: Clk, d
+        \item Outputs: q
+        \item Description: A flip-flop servers as a synchronizer.
+        \item Purpose: Avoid the potential glitch when we press the buttons and pull the switches.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: test\_memory.sv}
+        \item Inputs: Clk, Reset, [15:0] I\_O, [19:0] A, CE, UB, LB, OE, WE
+        \item Outputs: [15:0] I\_O
+        \item Description: The official testbench.
+        \item Purpose: This module servers as the memory when we test.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: tristate.sv}
+        \item Inputs: Clk, tristate\_output\_enable, Data\_write[N-1:0]
+        \item Outputs: Data\_read[N-1:0], Data[N-1:0]
+        \item Description: This component takes an input and a signal that allows the output to be High Impedience or the input.
+        \item Purpose: This module is the tristate buffer connected to SRAM.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: slc3.sv}
+        \item Inputs: [15:0] S, Clk, Reset, Run, Continue
+        \item Outputs: [11:0] LED, [6:0] HEX0, [6:0] HEX1, [6:0] HEX2, [6:0] HEX3, [6:0] HEX4, [6:0] HEX5, [6:0] HEX6, [6:0] HEX7, CE, UB, LB, OE, WE, [19:0] ADDR
+        \item Description: This is the main component of SLC-3. It cooperates all things we did.
+        \item Purpose: This module serves as the processor of the small computer SLC-3.
+    \end{itemize}
+
+    % \item
+    % \begin{itemize}
+    %     \item \textbf{Module: SLC3\_2.sv}
+    %     \item Inputs: None
+    %     \item Outputs: None
+    %     \item Description: The official testbench.
+    %     \item Purpose: Test whether we have correctly implement everything.
+    % \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: testbench\_week1.sv}
+        \item Inputs: None
+        \item Outputs: None
+        \item Description: The official testbench.
+        \item Purpose: Test whether we have correctly implement everything.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: testbench\_week2.sv}
+        \item Inputs: None
+        \item Outputs: None
+        \item Description: The official testbench.
+        \item Purpose: Test whether we have correctly implement everything.
+    \end{itemize}
+
+\end{itemize}
+
+\subsection{Description of the Operations of the ISDU}
+The logic of ISDU works similarly as the control unit of last lab about multiplier. It still contains five main parts, applying 2-always design.
+\subsubsection{Declaration of Name of States}
+For this part, we make use of enum function to give several names of states that we need to contain in this lab project. The names are given based on the state diagram provided by \emph{Patt \& Patel Appendix C}. After giving the names, we immediately declare two enum objects State and Next\_State; they can only take the names given.
+\subsubsection{Flip-Flop}
+For this part, we provide a flip flop which is triggered at positive edge of the clock. If Reset signal is given, the FSM will turn to the initial state Halted; otherwise, it will turn to Next\_State given by the rules in the fourth part.
+\subsubsection{Initialization of Signals}
+For this part, we simply set all controlling signals to 1’b0 or 2’b00, except Mem\_OE and Mem\_WE (they are set to 1’b1).
+\subsubsection{Flow Between States}
+For this part, we implement the flowing stream between states, i.e. which state will the system goes next when it locates at each state. The next-state-decision rule is also given by \emph{Patt \& Patel Appendix C}. Note that for some states, their next state differs under different circumstances, so we will use an if logic or a case logic to implement that.
+\subsubsection{Signals Triggered in Each State}
+
+\begin{figure}[hp]
+    \centering
+    \includegraphics[scale=0.2]{scl3_updated_datapath.png}
+    \caption{SLC-3 Updated Datapath for ECE385}
+    \label{datapath}
+\end{figure}
+
+\begin{figure}[hp]
+    \centering
+    \includegraphics[scale=0.7]{lc3_control_signals.png}
+    \caption{LC-3 Control Signals}
+    \label{control_signals}
+\end{figure}
+
+For this part, we implement how the control signals are set to different values to control the behavior of each component of the system. The control signals contains four catagories: Gate-prefixing signals for opening and closing the gates into bus; LD-prefixing signals for opening and closing the loading access for each variable after it; MUX-suffixing signals for controlling the selection of values of each MUX; Mem-prefixing signals for controlling the SRAM. To decide when to trigger each signal, we referred to \emph{SLC-3 Updated Datapath for ECE385} (See Fig.\ref{datapath}) and \emph{LC-3 Control Signals} (See Fig.\ref{control_signals}).
+
+
+\subsection{State Diagram of ISDU.sv}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.65]{state_diagram_ISDU.png}
+    \caption{State Diagram of ISDU.sv}
+    \label{state_diagram}
+\end{figure}
+
+Please refer to Fig.\ref{state_diagram} for this part.
+
+\section{Simulations of SLC-3 Instructions}
+
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.4]{simulations.png}
+    \caption{Simulations of SLC-3 Instructions ADDi, BR and LDR}
+    \label{simulations}
+\end{figure}
+
+In this section, the simulation being done include ADDi, BR, and LDR consecutively. The waveform with annotation is shown in Fig.\ref{simulations}. You can also refer to the codes in testbench\_report.sv and memory\_contents\_report.sv for more detail (see Appendix \ref{appendix_A}).
+
+Besides, anyone who wants to do such a series of simulations again can follow these steps: firstly, comment the entire file memory\_contents.sv and uncomment the entire file memory\_contents\_report.sv; secondly, in simulation settings, use testbench\_report to do RTL simulation rather than testbench\_week2.
+
+
+
+\section{Answers to Post-lab Questions}
+\subsection{Post Lab Question 1}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.7]{resource_table.png}
+    \caption{Design Resources and Statistics Table}
+    \label{resources}
+\end{figure}
+
+The Design Resources and Statistics table is given in Fig.\ref{resources}.
+
+The biggest problem we encountered for designing is that we wrongly added the Switch input signal into the flip flop and the consequence was that our program failed to do the test in memory\_contents.sv except for the first instruction we jumped to, which is exactly indicated by Switch. For debugging, as we noticed that with no flip-flops in lab6\_toplevel.sv, the programs works correctly for the first few instructions, we took the method of commenting one of the 4 flip-flops at once (we have 4 flip-flops for Reset, Run, Continue and Swtich), and finally we found that commenting the Switch Flip-Flop made it right. The corresponding conclusion is that, you should only synchronize the signals for keys on FPGA and should not add any other signals.
+
+\subsection{What is MEM2IO used for, i.e. what is its main function?}
+MEM2IO manages all I/O with the DE2 physical I/O devices, namely, the switches and 7-segment displays. For input, MEM2IO will load data from switches if the address is xFFFF, and from SRAM otherwise. For output, MEM2IO will write the data to LEDs when the address is xFFFF and WE is active, and from CPU to SRAM otherwise.
+
+\subsection{What is the difference between BR and JMP instructions?}
+\begin{enumerate}
+    \item BR adds the PCoffset to PC to change the value of PC, while JMP directly loads the value from BaseR and assigns it to PC.
+    \item BR will not be performed if both nzp and NZP are 0, while JMP will be performed whenever the opcode is matched.
+\end{enumerate}
+
+\subsection{What is the purpose of the R signal in Patt and Patel? How do we compensate for the lack of the signal in our design? What implications does this have for synchronization?}
+The R signal is used to indicate whether the memory has been successfully fetched. If so, we can proceed to the next state; otherwise, we stay in the same state. 
+
+To compensate for the lack of R signal in our design, we simply wait for a certain number of cycles for the memory to be ready.
+
+Using the method above, we do not need to use a synchronizer and can just wait for more cycles for synchronization.
+
+\section{Conclusion}
+In Lab 6, we successfully designed and implemente SLC-3 in SystemVerilog. We correctly realized FETCH, DECODE, and EXECUTE to enable our small computer to achieve all high-level functionalities: ADD, AND, NOT, BR, JMP, JSR, LDR, STR, and PAUSE. 
+
+This lab is very challenging due to the error-proneness of the datapath and ISDU. During debugging phase, we found that using consistent input and output names are very necessary. And we should thoroughly go through the given files to see what are the signals given and what should be implemented.
+
+\appendix
+\section{Appendix}
+\label{appendix_A}
+\subsection{Code for testbench\_report}
+\begin{lstlisting}
+// NOTE:
+// This module is used with memory_contents_report.sv. 
+// Do not apply this module to memory_contents.sv.    
+
+module testbench_report();
+
+// half clock cycle at 50 MHz
+// this is the amount of time represented by #1 delay
+timeunit 10ns;
+timeprecision 1ns;
+
+   // internal variables
+	logic [15:0] S, PC, MAR, MDR, IR;
+	logic Clk, Reset, Run, Continue;
+	logic [11:0] LED;
+	logic [6:0] HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, HEX6, HEX7;
+	logic CE, UB, LB, OE, WE;
+	logic [19:0] ADDR;
+	logic [15:0] R6;  // Added line for report-simulation.
+	wire [15:0] Data;
+
+	// initialize the toplevel entity
+	lab6_toplevel test(.*);
+	
+	// set clock rule
+   always begin : CLOCK_GENERATION 
+		#1 Clk = ~Clk;
+   end
+
+	
+	always begin
+		#1
+		PC = test.my_slc.d0.PC;
+		MAR = test.my_slc.d0.Reg_MAR.Out;
+		MDR = test.my_slc.d0.Reg_MDR.Out;
+		IR = test.my_slc.d0.Reg_IR.Out;
+		
+		/* Add the following line to do simulation required for the report.*/
+		R6 = test.my_slc.d0.RegFile0.REG[6];
+
+	end
+	
+	// initialize clock signal 
+	initial begin: CLOCK_INITIALIZATION 
+		Clk = 0;
+   end
+	
+	// begin testing
+	initial begin: TEST_VECTORS
+	   Reset = 0;
+		Continue = 0;
+		Run = 1;
+		
+		
+		
+	/* A test for Report Part 3 Added Here */
+		#2 Reset = 1;
+		#2 Run = 0;
+	   S = 16'h0003;  // Do from mem_array[3] in memory_contents_report.sv.
+		// You can go to see memory_contents_report.sv to see more details.
+        /* The End of The Added Test */
+        
+        
+        
+        // reset program
+        #200 Reset = 0;
+           Run = 1;
+    
+        end
+         
+    endmodule
+\end{lstlisting}
+
+\subsection{Code for memory\_contents\_report}
+\begin{lstlisting}
+    //  /*  Uncomment this line (and the last line) to comment the whole module. Comment this line (and the last line) to use the module.
+// Requires SLC3_2.sv
+import SLC3_2::*;
+
+module memory_parser;
+
+parameter size = 256;
+
+task memory_contents(output logic[15:0] mem_array[0:size-1]);
+
+   mem_array[   0 ] =    opCLR(R0)                ;       // Clear the register so it can be used as a base
+   mem_array[   1 ] =    opLDR(R1, R0, inSW)      ;       // Load switches
+   mem_array[   2 ] =    opJMP(R1)                ;       // Jump to the start of a program
+   
+   
+	// $$$ Here is LDR Test. (But take the result after opBR to meet the requirements of the report.)
+   mem_array[   3 ] =    opLDR(R6, R0, 4'd7)      ;       // Now R6 stores the value of mem_array[7], which is 4.
+	// Required Simulation Starts Here!!! (Will produce a continuous loop 3->4->6->3->...)
+	// $ Here is ADDi Test.
+   mem_array[   4 ] =    opADDi(R6, R6, 5'b00011)    ;       // R6 = R6 + 3 = 7 (in decimal)
+	// @@@@@@@@@@@@@ This line is not about the test, only showing that the BR happens.
+   mem_array[   5 ] =    opADDi(R0, R0, 5'b00000)    ;       // R0 = R0 + 0
+	// $$ Here is BR Test.
+   mem_array[   6 ] =    opBR(z, -4)      ;       // This moves the program to mem_array[3]. As R0 = 0, the BR always happens.
+   mem_array[   7 ] =    16'h0004      ;       // A constant 4.
+	
+	
+	// In the simulation waveform, we will see:
+	// R6 will jump between 4 and 7 again and again with a certain frequency until the simulation ceases.
+	//    => ADDi works since 4+3=7; BR works since "jump between" happens; LDR works since R6 goes back to 4.
+	
+	// These phenomena indicates that ADDi, BR, LDR works in this sequence correctly.
+   
+	
+   for (integer i = 8; i <= size - 1; i = i + 1)		// Assign the rest of the memory to 0
+   begin
+       mem_array[i] = 16'h0;
+   end
+
+endtask
+
+endmodule
+
+
+//  */
+\end{lstlisting}
+
+
+% \begin{figure}[h]
+%     \centering
+%     \includegraphics{part_A.png}
+%     \caption{The circuit from Part A}
+%     \label{a}
+% \end{figure}
+
+
+% \begin{table}[h]
+%     \centering
+%     \begin{tabular}{|c|c|}
+%         \hline
+%         ABC & Z \\ \hline
+%         000 & 0 \\ \hline
+%         001 & 1 \\ \hline
+%         010 & 0 \\ \hline
+%         011 & 0 \\ \hline
+%         100 & 0 \\ \hline
+%         101 & 1 \\ \hline
+%         110 & 1 \\ \hline
+%         111 & 1 \\ \hline
+%     \end{tabular}
+%     \caption{Truth table for Part A.}
+%     \label{truthA}
+% \end{table}
+
+
+
+\end{document}

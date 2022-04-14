@@ -1,0 +1,147 @@
+\documentclass[12pt]{article}
+% \usepackage[bottom=1.0in]{geometry}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage[backref]{hyperref}
+\usepackage{listings}
+\pagestyle{fancy}
+\renewcommand{\headrulewidth}{0pt}
+
+\begin{document}
+\begin{titlepage}
+    \centering
+    {\Huge\bfseries ECE385\\\Large Fall 2021\\\Large Experiment 2}
+
+    \vspace{1cm}
+    
+    {\LARGE\bfseries Data Storage}
+    
+    \vspace{2cm}
+    
+    {\Large Kunle Li\\3190112150\\Zifei Han\\3190110304}
+    
+    \vfill
+    
+    {\large\itshape Section: L1 D225\\TA: Lianjie Wang}
+    \end{titlepage}
+\lhead{ECE385}
+\chead{Lab 2}
+\rhead{Li \& Han}
+
+\section{Introduction}
+In this lab, we design a 2-bit, 4-word shift register storage unit. The storage unit contains 4 words and each word is 2-bit wide. We manage to realize the \textit{load, read, write} and \textit{do nothing} functions specified in the instructions. Specifically, we will rewrite the data when STORE is high; we will load data from DIN when LDSBR is high; we will read data from the memory of SAR when FETCH is high; and we continuously shift the register when all the previously mentioned signals are low (i.e. do nothing).
+
+\section{Operation of the memory circuit}
+\subsection{How the addressing is implemented}
+The circuit commits a \textit{read} operation when FETCH is high. At this time, data stored at SAR will be read into SBR.
+
+Besides, the circuit commits a \textit{write} operation when STORE is high. At this time, data stored at SBR will be written into SAR.
+\subsection{How a write operation is performed on the memory}
+When writing a new word into the memory, the unique word address will be stored at SAR, while SBR stores the target data. To achieve this, first, the unique word address in SAR is changed by flipping the two bits of SAR, namely, SAR0 and SAR1, in order to assign the address where we store the data. The two bits of SBR, SBR0 and SBR1, contain the data we want to write. 
+
+After STORE is set high, the data in SBR will be stored in the address specified by SAR. To do this, we use a MUX (SN74157) and STORE is used as a SELECT signal. If STORE is low, then the MUX will choose the rightmost bits of the shift register as the input. Else, the MUX will choose the data in SBR as input. Details see Section.\ref{details}.
+
+\subsection{How a read operation is performed on the memory}
+The read operation is somewhat similar to the inverse process of \textit{write}. When FETCH is set high, the data stored in SBR0 and SBR1 will be replaced by the data stored in SAR0 and SAR1. This operation is also done using a MUX (SN74153). Details see Section.\ref{details}.
+
+\section{Written description and block diagram of memory circuit implementation}
+\subsection{High-level description}
+The circuit consists of one 2-to-1 MUX (SN74157), one 3-to-1 MUX (SN74153), two shift registers (SN74LS194A) and a Storage Buffer register (SN7474).
+
+The operation \textit{load} needs a 3-to-1 MUX, a control logic unit (which will be elaborately described in Section ), and a Storage Buffer Register (SBR).
+
+The operation \textit{write} needs a 2-to-1 MUX, a SBR, a control logic, and two 2-bit, 4-word shift registers.
+
+The operation \textit{read} needs a SBR, a control logic, and a 3-to-1 MUX.
+\subsection{Block diagram}
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.4]{block_diagram.png}
+    \caption{Block diagram}
+    \label{block diagram}
+\end{figure}
+
+\section{Control Unit}
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=1]{control_unit.png}
+    \caption{The control logic diagram}
+    \label{control logic}
+\end{figure}
+Our control unit contains two main parts (See Fig.\ref{control logic}): one for the counting and determination of addresses (Name it as CU1), and the other for controlling other chips (Name it as CU2). For CU1, we use a SN74LS169 chip and a SN74LS85 chip as counter and comparator, respectively. They work as a part of control of storing and fetching process. For CU2, we use several NAND and NOT gates to provide a logic controlling all the three processes indicated by LDSBR, STORE and FETCH. We will provide more detail for their functions in the Section.\ref{part5}.
+
+\section{Design steps taken \& detailed circuit schematic}
+\label{part5}
+\subsection{Design Considerations}
+In CU1 of control logic, the counter will count up but we will only make use of its last two digits, i.e. the counter output required from us will turn from 0 to 3 and then back to 0, working in a cycle. For the comparator, it receives two sets of input: one is the 2-bit data from the counter; the other is from SAR1 and SAR0 (they are received and re-outputted by a SN74LS74 chip). Only when these two sets of data match should we start the process of STORE and FETCH, so the output indicating whether the compared numbers equal with one another is essential. Call this output CPAR. 
+
+In CU2 of control logic, we make use of 4 variables to control other chips in the circuit: the inputs FETCH, STORE, LDSBR and the output of comparator CPAR. Three controlling signals, including op0, op1 and op2, are produced using this part of control logic; op0 controls MUX SN74LS157 for storing, and both op1 and op2 control MUX SN74LS153 for fetching and loading into SBR where op1 connects with A on MUX and op2 connects with B on MUX. 
+
+
+\subsection{Implementation of \textit{load, write} and \textit{read}}
+\label{details}
+For the STORE process, op0 = (CPAR) AND (STORE); it means that only when the address matches with the counter as well as the storing signal is high that we should start the storing process. When op0 = 0, we should not take the storing process, and thus the MUX will take what is the output of the two shift registers and then push them back at the beginning of these registers. When op0 = 1, we should take the storing process, so we read in what is in SBR and push its two bits into the two registers, respectively. In that way we have just stored what is in SBR into the right address in the shift registers.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|c|c|}
+        \hline
+        LDSBR & CPAR & FETCH & op2(=B) & op1(=A) \\ \hline
+        0 & 0 & 0 & 1 & 0 \\ \hline
+        0 & 1 & 0 & 1 & 0 \\ \hline
+        0 & 0 & 1 & 1 & 0 \\ \hline
+        1 & 0 & 0 & 0 & 1 \\ \hline
+        1 & 1 & 0 & 0 & 1 \\ \hline
+        0 & 1 & 1 & 0 & 0 \\ \hline
+    \end{tabular}
+    \caption{Designed Truth Table for FETCH and LDSBR Logic}
+    \label{truth}
+\end{table}
+
+
+For the LDSBR and FETCH processes, we use a 3-to-1 MUX to realize these two functions. To start with, we have to firstly realize how CPAR, FETCH, LDSBR will work together, and thus we can design the truth table shown in Table.\ref{truth}  (We have ignored the cases for both LDSBR and FETCH are 1 as instructed by the FAQs in Lab Manual). Note that based on our design, we should conduct FETCH when AB=00, conduct LDSBR when AB=01, and do nothing when AB=10. When AB=10 or 11, the 3-to-1 MUX will take the value of the output of D-Flip Flop, whose input is just the output of this MUX (So this just implies “do nothing”). When AB=01, the MUX will choose the inputs DIN and thus the output of the D-Flip Flop, which is just SBR, are replaced by the value of DIN1 and DIN0. When AB=00, the MUX will choose the last digit of outputs of shift registers and store it in SBR, which is just the requirement of fetching process.
+\subsection{Detailed Circuit Schematic}
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.42]{circuit.png}
+    \caption{Detailed circuit schematic}
+    \label{circuit}
+\end{figure}
+
+
+
+\section{Description of all bugs encountered, and corrective measures taken}
+\begin{lstlisting}
+    Error: (vsim-3170) Could not find ``lab2_vlg_vec_tst''.
+\end{lstlisting}
+This error is raised when we simulate the waveform as what the tutorial video suggests. The bug is that the directory where we store \verb|Waveform2| is incorrect. In fact, there is no need to create a new waveform file and copy its directory, and doing so will also cause an error if the directory where the lab2 project lies is incosistent with the default path of a new file. We discover that the easiest way to solve this is by clicking the \verb|Restore Default| button when setting the path of the simulation.
+
+\section{Answers to pre-lab questions}
+\subsection{Do not gate the clock (this is bad practice in digital design, why?}
+Because gating the clock may cause delay on the clock signal, in turn making every component asynchronized.
+
+\subsection{When exactly do you load the data into the SBR? How do you exactly tell what input the MUX should choose from?}
+\textit{load} will be done when LDSBR is high. The MUX chooses input based on the 2-bit SELECT signal fed into the MUX by the control logic, which is affected by LDSBR.
+
+% \subsection{Only the clock input needs to be de-bounced to step through your circuit, why?}
+
+\section{Answers to post-lab questions}
+\subsection{What are the performance implications of your shift register memory as compared to a standard SRAM of the same size?}
+\begin{enumerate}
+    \item The shift register we use is much slower than a standard SRAM. Because the shift register depends heavily on the clock cycle, which means that it might take up to 4 clock cycles before the target data is put at the rightmost part of the shift register. Meanwhile, an SRAM is parallel load, which works faster.
+    \item The data stored in an SRAM can be recovered even if the circuit runs out of power. However, the data stored in the shift register will be lost if the circuit is shut down.
+\end{enumerate}
+
+\subsection{What are the implications of the different counters and shift 
+register chips, what was your reasoning in choosing the parts you 
+did?}
+For counters, we may choose a synchronous counter (74169 chips) or a ripple counter (7492 or 7493 chips). A synchronous counter will be much efficient because the Flip-Flops that need to change value will change simultaneously, and thus it can avoid glitches as well; however, its design will be more complex and the load of counting will increase as the number of counters increase. A ripple counter contains a less complex circuit and has less influence to the load of counting; nevertheless, it will encounter more glitches and its working speed is slower. We choose a synchronous counter in this lab because we can simply its disadvantages by designing efficiently in Quartus and we will only use one counter.
+ 
+For shift registers, we can make use of either a 4-bit parallel access shift register (7495 chips) or a 4-bit bidirectional universal shift register (74194 chips). A parallel access shift register will enable us to look for parallel outputs; however, it can only shift right. A bidirectional universal shift register will enable us to make a shift to either left or right based on the control signals; however, it may not enable us to see parallel outputs. In this lab, we choose 7495 chips because we need the parallel outputs for debugging while we do not need to shift for both sides in the register.
+
+\section{Conclusion}
+In this lab, we design a 2-bit, 4-word shift register storage unit. The storage unit contains 4 words and each word is 2-bit wide. We manage to realize the \textit{load, read, write} and \textit{do nothing} functions specified in the instructions.
+
+\end{document}

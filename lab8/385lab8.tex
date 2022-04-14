@@ -1,0 +1,235 @@
+\documentclass[11pt]{article}
+% \usepackage[bottom=1.0in]{geometry}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage[backref]{hyperref}
+\pagestyle{fancy}
+\renewcommand{\headrulewidth}{0pt}
+
+\begin{document}
+\begin{titlepage}
+    \centering
+    {\Huge\bfseries ECE385\\\Large Fall 2021\\\Large Experiment 8}
+
+    \vspace{1cm}
+    
+    {\LARGE\bfseries SOC with USB and VGA Interface in SystemVerilog}
+    
+    \vspace{2cm}
+    
+    {\Large Kunle Li\\3190112150\\Zifei Han\\3190110304}
+    
+    \vfill
+    
+    {\large\itshape Section: L1 D225\\TA: Lianjie Wang}
+    \end{titlepage}
+\lhead{ECE385}
+\chead{Lab 8}
+\rhead{Li \& Han}
+
+\tableofcontents
+\section{Introduction}
+In this lab, we connect the monitor to the VGA port and the keyboard to the USB port and depending on the key pressed on the keyboard, a small ball will move and bounce in either the X or Y direction on the monitor screen. The ASCII value of the key we press will be also displayed on the LED on board.
+
+\subsection{The USB interface}
+The Universal Serial Bus (USB) standard defines the connection and communication protocols between computers and electronic devices. It also provides power supply to the connected devices. A USB cable has either a type A or a type B port on its ends. A USB port consists of four pins: VDD, D-, D+, and GND. The VDD and GND pins are 
+power lines, and D- and D+ are data lines. When data is being transmitted, D- and D+ take opposite voltage levels in a single time frame to represent one bit of data. On low and full speed devices, a differential ‘1’ is transmitted by pulling D+ high and D- low, while a differential ‘0’ is a D- pulled high a D+ pulled low.
+
+\subsection{The VGA interface}
+A VGA Monitor can be thought of as a grid of pixels where each pixel is a picture elements that can be set to a specific color. There are 480 rows and each row consists of 640 pixels. The VGA interface works serially, that is, color information for each respective pixels is sent one after the other, as opposed to all at once.
+
+Colors can be represented using a triplet consisting of the intensities of each fundamental color (Red, Green, Blue). The monitor expects these values to be analog, and thus a DAC (Digital to Analog Convertor) is used. The DE2 Educational Board has a 10-bit DAC, that is, it uses 10 bits to represent the intensity of each channel (Red, Green, or Blue), for a total of 30 bits. Depending on the type of monitor and video card you use at home, your computer uses either 16, 24, or 32 bits to encode this color information.
+
+% An important fact to realize is that the VGA monitor does not have memory and thus will not store the pixel information being written to it. Instead, the pixels must be continuously sent to the display to achieve a stable image. The VGA Adapter does have memory and will be responsible for constantly sending out the pixel information.
+
+\section{Written Description of Lab 8 System}
+\subsection{Written Description of the entire Lab 8 system}
+The NIOS II system interacts with the USB chip through cypress EZ-OTG (CY7C67200) USB controller. The EZ-OTG is constantly polling for data and whenever it receives an interrupt signal it would read data from the keyboard and place the data into its internal RAM, then NIOS II will fetch data using USBWrite/USBRead.
+
+The VGA components, such as VGA controller and VGA color mapper, will generate a new image to display on the monitor every time the ball changes its position.
+\subsection{Written description of the USB protocol}
+\begin{itemize}
+    \item USBRead: read data from USB controller's internal registers
+    \item USBWrite: write data to USB controller's internal registers
+    \item IO\_read: handle the delay and time to ensure that data stored in USB controller's internal registers can be read when needed
+    \item IO\_write: handle the delay and time to ensure that data stored in USB controller's internal registers can be written to the FPGA when needed
+\end{itemize}
+
+%%% 2-3
+\subsection{Block Diagram}
+The block diagram of the toplevel of this lab is shown in Fig.\ref{2_3}.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=15cm]{block_diagram.png}
+    \caption{Block Diagram of Lab8}
+    \label{2_3}
+\end{figure}
+
+%%% 2-4（修改下划线）
+\subsection{Module Descriptions}
+%%%%%% 第一个
+\subsubsection{Module: lab8.sv}
+\begin{itemize}
+\item Inputs: CLOCK\_50, [3:0] KEY, OTG\_INT.
+\item Outputs: [6:0] HEX0, [6:0] HEX1, [7:0] VGA\_R, [7:0] VGA\_G, [7:0] VGA\_B, VGA\_CLK, VGA\_SYNC\_N, VGA\_BLANK\_N, VGA\_VS, VGA\_HS, [1:0] OTG\_ADDR, OTG\_CS\_N, OTG\_RD\_N, OTG\_WR\_N, OTG\_RST\_N, [12:0] DRAM\_ADDR, [1:0] DRAM\_BA, [3:0] DRAM\_DQM, DRAM\_RAS\_N, DRAM\_CAS\_N, DRAM\_CKE, DRAM\_WE\_N, DRAM\_CS\_N, DRAM\_CLK.
+\item Inout: [15:0] OTG\_DATA, [31:0] DRAM\_DQ.
+\item Description: This module serves as the top level module for this lab project. 
+\item Purpose: In this module, different modules from .sv and .v files are instantiated and put together to build connection between software part and hardware part.
+\end{itemize}
+%%%%%% 第二个
+\subsubsection{Module: hpi\_io\_intf.sv}
+\begin{itemize}
+\item Inputs: Clk, Reset, [15:0] from\_sw\_data\_out, [1:0] from\_sw\_address, from\_sw\_r, from\_sw\_w, from\_sw\_cs, from\_sw\_reset.
+\item Outputs: [15:0] from\_sw\_data\_in, [1:0] OTG\_ADDR, OTG\_RD\_N, OTG\_WR\_N, OTG\_CS\_N, OTG\_RST\_N.
+\item Inout: [15:0] OTG\_DATA.
+\item Description: This module works as the connection part of data between NIOS II and EZ-OTG chip.
+\item Purpose: In this module, based on controlling signals, different output signals will be assigned to different values, and these outputs will control the behavior of EZ-OTG chip.
+\end{itemize}
+%%%%%% 第三个
+\subsubsection{Module: VGA\_controller.sv}
+\begin{itemize}
+\item Inputs: Clk, Reset, VGA\_CLK.
+\item Outputs: VGA\_HS, VGA\_VS, VGA\_BLANK\_N, VGA\_SYNC\_N, [9:0] DrawX, [9:0] DrawY.
+\item Description: This module serves as the VGA controller by getting the sync pulses and setting the parameters for each pixel.
+\item Purpose: In this module, different pixels on the screen will be set to different colors to indicate the position of the bouncing ball.
+\end{itemize}
+%%%%%% 第四个
+\subsubsection{Module: HexDriver.sv}
+\begin{itemize}
+\item Inputs: [3:0] In0.
+\item Outputs: [6:0] Out0.
+\item Description: This module drives the LED display on the FPGA board.
+\item Purpose: Guarantee that the FPGA board can display the operands and the result.
+\end{itemize}
+%%%%%% 第五个
+\subsubsection{Module: color\_mapper.sv}
+\begin{itemize}
+\item Inputs: is\_ball, [9:0] DrawX, [9:0] DrawY.
+\item Outputs: [7:0] VGA\_R, [7:0] VGA\_G, [7:0] VGA\_B.
+\item Description: This module works as the “painter” of the screen.
+\item Purpose: In this module, based on the signal is\_ball, different pixels of the screen will be set to either background color or ball color.
+\end{itemize}
+%%%%%% 第六个
+\subsubsection{Module: ball.sv}
+\begin{itemize}
+\item Inputs: Clk, Reset, frame\_clk, [7:0]keycode, [9:0] DrawX, [9:0] DrawY.
+\item Outputs: is\_ball.
+\item Description: This module works as the controller of the behavior of the ball. More specifically, it is controlled by the keyboard inputs (change direction) as well as the bound of the screen (bouncing).
+\item Purpose: In this module, based on the outside controlling keyboard, we will be able to control the ball to move as what we want.
+\end{itemize}
+%%%%%% 第七个
+\subsubsection{Module: lab8\_soc.v}
+\begin{itemize}
+\item Inputs: clk\_clk, [15:0] otg\_hpi\_data\_in\_port, reset\_reset\_n.
+\item Outputs: [7:0] keycode\_export, [1:0] otg\_hpi\_address\_export, otg\_hpi\_cs\_export, [15:0] otg\_hpi\_data\_out\_port, otg\_hpi\_r\_export, otg\_hpi\_reset\_export, otg\_hpi\_w\_export, [12:0] sdram\_wire\_addr, [1:0] sdram\_wire\_ba, sdram\_wire\_cas\_n, sdram\_wire\_cs\_n, sdram\_wire\_cke, [3:0] sdram\_wire\_dqm, sdram\_wire\_ras\_n, sdram\_wire\_we\_n.
+\item Inout: [31:0] sdram\_wire\_dq.
+\item Description: This module is automatically generated by lab8\_soc.qsys in Platform Designer once we click on the Generate HDL button. It contains a module that shows how the connections is set between instances (which are added from libraries) in the project system.
+\item Purpose: In this module, a pattern of real connections between utilized hardware instances is realized with codes. They form the hardware basic of this lab project.
+\end{itemize}
+
+The introduction of each different submodules in Platform Designer are shown below:
+\begin{itemize}
+\item nios2\_gen2\_0: The nios2 block handles the C code conversion over to system verilog which then is able to be executed within the hardware FPGA board. 
+\item Onchip\_memory2\_0: The memory block acts as available hardware memory for variables needed to execute the C code onto the board. This effectively acts as a compliment to the nios2 processor. 
+\item Clk\_0: Serves as the functional clock for the entire system and acts as a reference for the other modules. 
+\item sdram: This block allows us to get available SDRAM on the FPGA board since on-chip memory is too small for the available program to be stored and updated successfully. 
+\item atlpll\_0: This block is the method to account for the small delays within the transfer of the data in and out of the SDRAM and acts as a separate clock for the system. 
+\item sysid\_qsys\_0: This block verifies the correct transfer of the software and hardware by looking back and forth between the C code and SystemVerilog to assure the data transfer is done in the correct format. 
+\item jtag\_uart\_0: Allows for terminal access for use in debugging the software. 
+\item keycode: Reads data, updates the USB chip and then sends it to the software for logic instruction. 
+\item otg\_hpi\_address: PIO that allows the desired address in memory of the SoC to be found that is sent from the software to the FPGA. 
+\item otg\_hpi\_data: PIO that allows for cross transfer of data from the FPGA to software and the other way around.  This PIO has a width of 16 bits which allows for sizable data transfer between the two. 
+\item otg\_hpi\_r: PIO that allows the enable bit to read from the memory of the SoC that is sent from the software to the FPGA. 
+\item otg\_hpi\_w: PIO that allows the enable bit to write to the memory of the SoC that is sent from the software to the FPGA. 
+\item otg\_hpi\_cs: PIO that allows the enable bit turn on and off the memory of the SoC that is sent from the software to the FPGA. 
+\item otg\_hpi\_reset: PIO that allows for the reset of the memory of the SoC sent from the software to the FPGA.
+\end{itemize}
+
+
+%%% 3
+\section{Answers to Hidden Questions}
+%%%%%% 第一大题
+\subsection{The Question from lab8.sv}
+%%%%%%%%% 第一小问
+The advantage of PS2 compared with USB:
+\begin{itemize}
+\item No Driver Required: Both mouse and keyboard using a PS2 interface do not need a driver to activate them, while all devices using USB interface will need their corresponding drivers. This kind of property also indicates that PS2 has better confidentiality of information.
+\item N-key rollover: This means that you can press on as many keys as you want without causing input conflict. In the contrary, one can only press on at most 6 keys for general USB interface; exceeding such a maximum will cause key input information to be lost.
+\end{itemize}
+%%%%%%%%% 第二小问
+The advantage of USB compared with PS2:
+\begin{itemize}
+\item Ability of Hot Swap: Hot Swap means that one can plug in or out a device without previously shutting down the system. Such an operation is strictly prohibited for PS2 as it will cause the mainboard to break down.
+\item Wider Usage on Devices: Nowadays it is easy to find a device with an USB interface, while it is quite hard to find a device with a PS2 interface. As a result, using a USB interface for our keyboard will be able to match more sorts of different devices.
+\end{itemize}
+
+%%%%%% 第二大题
+\subsection{The Question from ball.sv}
+Using the old value of Ball\_Y\_Motion will be more appropriate, since the valued of Ball\_Y\_Pos and Ball\_Y\_Motion are updated only at positive edge of Clk signal.
+
+If we change the original given code with the statement ``Ball\_Y\_Pos\_in = Ball\_Y\_Pos + Ball\_Y\_Motion\_in", there will exist a lag of the system, i.e. one clock delay. Consequently, our ball will not be able to bounce at the exact boundary but bounce at somewhere outside the screen. Nevertheless, such a change is not crucial for keyboard operations, because a single clock delay is hard to be noticed compared with that of key pressing.
+
+
+
+\section{Answer to Post Lab Questions}
+\subsection{Answers to the first two questions}
+\paragraph{What is the difference between VGA\_clk and Clk?}
+VGA\_clk runs at 25 MHz which controls the frame frequency on the monitor; Clk runs at 50 MHz which controls the frequency of the operations performed on the FPGA.
+
+\paragraph{In the file io\_handler.h, why is it that the otg\_hpi\_data is defined as an integer pointer while the otg\_hpi\_r is defined as a char pointer?}
+Because otg\_hpi\_data needs to store a 16-bit value, so it needs an int type. However, otg\_hpi\_r is only an enable signal with value 0 or 1, so simply a char type with 1 bit is enough. We can save some memory in the chip in this way.
+
+%%% 6-3
+\subsection{Design Statistics Analysis}
+The design statistics table of the design of this lab is shown in Fig.\ref{6_3}.
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=15cm]{design_table.png}
+    \caption{Design Statistics Table}
+    \label{6_3}
+\end{figure}
+
+%%% 7
+\section{Conclusion}
+In Lab 8, our design mainly contains four parts:
+\begin{itemize}
+\item Hardware Part: We mainly design it utilizing Platform Designer within Quartus. For this part we add instances which act as hardware components and then connect wires between them to implement the hardware design. After generating HDL, these explicit circuit diagrams will be automatically transformed into implicit codes of a module in SystemVerilog, which can be further used by the toplevel entity.
+\item Software Part: We mainly design it utilizing NOIS ii within Quartus. For this part we write C programs for connecting USB, VGA to the screen. This part tells the FPGA how to read data from keyboard and express the result on the screen.
+\item Toplevel Part: This simply refers to the lab8.sv in the project files. This toplevel module enables our hardware design to be passed into FPGA and thus interact with our software program.
+\item Other sv Files: The rest of the sv files also works as the connection between hardware and software part. Besides, they are implementing the behaving rules of the ball and coloring rules of the screen. To be clearer, the hardware part, software part and toplevel part jointed establish a framework for a ball bouncing “game”, and these sv files are implementing the game.
+\end{itemize}
+
+Besides, we have encountered a small bug when writing the code for ball.sv. That is, we simply copy the codes of Y’s motion and change the variable name to utilize them to X. However, there exist two “if-elseif” structures (one for X, one for Y) and thus they may take into effect together. One possible consequence is that, when we simultaneously press S and D when the ball is bouncing at the right-bottom corner, it will bounce to a diagonal direction (left-top direction). To fix it, simply rewrite the code to make it have one “if-elseif-elseif-elseif” structure so the ball will only take one kind of motion at each time. 
+
+
+% \begin{figure}[h]
+%     \centering
+%     \includegraphics[width=15cm]{part_A.png}
+%     \caption{The circuit from Part A}
+%     \label{a}
+% \end{figure}
+
+
+% \begin{table}[h]
+%     \centering
+%     \begin{tabular}{|c|c|}
+%         \hline
+%         ABC & Z \\ \hline
+%         000 & 0 \\ \hline
+%         001 & 1 \\ \hline
+%         010 & 0 \\ \hline
+%         011 & 0 \\ \hline
+%         100 & 0 \\ \hline
+%         101 & 1 \\ \hline
+%         110 & 1 \\ \hline
+%         111 & 1 \\ \hline
+%     \end{tabular}
+%     \caption{Truth table for Part A.}
+%     \label{truthA}
+% \end{table}
+
+
+
+\end{document}

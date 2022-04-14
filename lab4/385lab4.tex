@@ -1,0 +1,236 @@
+\documentclass[11pt]{article}
+% \usepackage[bottom=1.0in]{geometry}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage[backref]{hyperref}
+\pagestyle{fancy}
+\renewcommand{\headrulewidth}{0pt}
+
+\begin{document}
+\begin{titlepage}
+    \centering
+    {\Huge\bfseries ECE385\\\Large Fall 2021\\\Large Experiment 4}
+
+    \vspace{1cm}
+    
+    {\LARGE\bfseries Introduction to SystemVerilog, FPGA, CAD, and 16-bit Adders}
+    
+    \vspace{2cm}
+    
+    {\Large Kunle Li\\3190112150\\Zifei Han\\3190110304}
+    
+    \vfill
+    
+    {\large\itshape Section: L1 D225\\TA: Lianjie Wang}
+    \end{titlepage}
+\lhead{ECE385}
+\chead{Lab 4}
+\rhead{Li \& Han}
+
+\tableofcontents
+\section{Introduction}
+In this lab, we start to use SystemVerilog to build the circuit. We design a 8-bit logic processor using SystemVerilog, which extends the capability of the 4-bit logic processor that we built in lab 3. The logic processor consists of a control unit, a computation unit, a routing unit and a register unit. The logic processor can perform 8 high-level functions, including AND, OR, XOR, NAND, NOR, XNOR, CLR, SET, and SWAP.
+
+\section{Serial Logic Processor}
+\subsection{The Block Diagram}
+See Fig.\ref{logic}.
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.25]{logic_processor_block_diagram.png}
+    \caption{The block diagram of the logic processor}
+    \label{logic}
+\end{figure}
+
+\subsection{What was Done with the Provided Code to Extend it from 4 Bits to 8 Bits}
+The following files are modified in order to extend from 4 bits to 8 bits:
+\begin{itemize}
+    \item \verb|Control.sv|\\\verb|logic| is extended from \verb|[2:0]| to \verb|[4:0]| and states G, H, I, J are added; the \verb|case| statements also get 6 more conditions (e.g. \verb|G : next_state = H;|).
+    \item \verb|Reg_4.sv| and \verb|Register_unit.sv|\\ The input data and the output data are extended to 8 bits. The name of the reg\_4 is also changed to reg\_8.
+    \item \verb|Processor.sv|\\The input of the \verb|HexDriver| is changed to \verb|A[7:4]| and \verb|B[7:4]|, separately.
+\end{itemize}
+
+\section{Simulation Result}
+See Fig.\ref{simulation} for the simulation result.
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.23]{simulation_result.png}
+    \caption{The simulation result}
+    \label{simulation}
+\end{figure}
+
+Initially, A is loaded with 00110011 and B is loaded with 01010101. F is set to 010 so the operation is A XOR B. R is set to 10 so the result of the XOR operation is loaded back to A. So A is 01100110 and B is 01010101.
+
+Afterwards, F is set to 110 so the operation is A XNOR B. And R is set to 01 so the result of the XNOR operation is loaded back to B. So A is 01100110 and B is 11001100.
+
+Lastly, R is set to 11 so the values of A and B swap.
+
+
+\section{Adders}
+\subsection{Ripple Carry Adder}
+\subsubsection{Written Description of the Architecture}
+The ripple carry adder connects $N$ full adders in serial, with $N$ depending on how many bits there are for the numbers we want to add up. The full adder receives three input bits: the two bits we want to add up, and one carry bit coming from the previous adder. The output is a one-bit result and a one-bit carry bit.
+
+In the case of adding up two 16-bit unsigned integers, we just connect 16 full adders in serial.
+\subsubsection{Block Diagram}
+See Fig.\ref{ripple} for the block diagram.
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.3]{ripple_adder.png}
+    \caption{N-bit Carry-Ripple Adder Block Diagram}
+    \label{ripple}
+\end{figure}
+
+\subsection{Carry Lookahead Adder}
+\subsubsection{Written Description of the Architecture}
+The carry-lookahead adder reduces the gate delay by adding propagating logic and generating logic. All carry bits $C_i$ are determined only using $C_in$ and the corresponding immediate inputs $A_i$ and $B_i$. As a result, all carry bits can be calculated in parallel.
+
+In this lab, we use a hierarchical design, which splits the 16-bit adder into four 4-bit CLA adders, and connect them with a 16-bit lookahead carry unit to create the 16-bit CLA.
+
+\subsubsection{Describe How the P and G Logic are Used}
+For every $A_i$ and $B_i$, $$G(A,B)=A\cdot B$$
+
+$$P(A,B)=A\oplus B$$ and $$C_{i+1}=G_i+(P_i\cdot C_i)$$
+
+By iteration, we can see that $C_i$ only depends on $P$, $G$ and $C_{in}$, where $P$ and $G$ are determined by the immediate inputs $A$ and $B$. Therefore, all $C_i$ can be calculated in parallel, which saves computation time.
+
+\subsubsection{Describe How You Created the Hierarchical 4x4 Adder}
+To avoid using too many gates when the CLA needs to add a huge number, we first construct 4-bit CLAs, then use them to create a larger CLA in a hierarchical fashion.
+
+For each 4-bit CLA, we denote its group propagate and group generate as $P_G$ and $G_G$, where $$P_G=P_0\cdot P_1\cdot P_2\cdot P_3$$ and $$G_G=G_3+G_2\cdot P_3+G_1\cdot P_3\cdot P_2+G_0\cdot P_3\cdot P_2\cdot P_1$$
+
+To prevent from being trapped by the slow rippling of carry bits, we should generate $C_{in}$ using $P-G$ and $G_G$. Shown as below, $$C_4=G_{G0}+C_0\cdot P_{G0}$$
+$$C_8=G_{G4}+G_{G0}\cdot P_{G4}+C_0\cdot P_{G0}\cdot P_{G4}$$
+$$C_{12}=G_{G8}+G_{G4}\cdot P_{G8}+G_{G0}\cdot P_{G8}\cdot P_{G4}+C_0\cdot P_{G0}\cdot P_{G4}\cdot P_{G8}$$
+
+\centerline{\dots}
+
+\subsubsection{Block Diagram}
+See Fig.\ref{lookahead} for the block diagram.
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.3]{lookahead_adder.png}
+    \caption{N-bit Carry Lookahead Adder Block Diagram}
+    \label{lookahead}
+\end{figure}
+\subsubsection{Block Diagram Inside a Single CLA (4-bits)}
+See Fig.\ref{lookahead_inside} for the block diagram.
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.45]{lookahead_inside.png}
+    \caption{Block Diagram Inside a Single CLA (4-bits)}
+    \label{lookahead_inside}
+\end{figure}
+\subsubsection{Block Diagram of How Each CLA was Chained Together}
+See Fig.\ref{lookahead_chain} for the block diagram.
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.55]{lookahead_chain.png}
+    \caption{Block Diagram of How Each CLA was Chained Together}
+    \label{lookahead_chain}
+\end{figure}
+
+\subsection{Carry Select Adder}
+\subsubsection{Written Description of the Architecture}
+One N-bit carry select adder consists of two N-bit CRAs and a MUX, where the two CRAs calculate the sum of the two input bits, with one of them taking the carry-in bit as 0 and the other as 1. One of the two results will be selected based on the real carry-in bit.
+
+\subsubsection{Describe at a high level how the CSA speculatively computes multiple sums in parallel and rapidly chooses the correct one later}
+All CRAs begin to calculate the sum of $A_{i+4:i}$ and $B_{i+4:i}$ after $A$ and $B$ are available, with half calculating the sum with the carry-in as 0, half calculating the sum with the carry-in as 1. This is how the sums are computed in parallel.
+
+The rapid choice of the correct one is done after each carry bit is computed. Namely, $C_{i+4}=C_{i+4, 0}+C_i\cdot C_{i+4, 1}$, where $C_{i+4, 0}$ denotes the corresponding carry-out if the carry-in is 0, and $C_{i+4, 1}$ denotes the corresponding carry-out if the carry-in is 1. This process only produces one gate delay since the number of inputs are only 3.
+
+\subsubsection{Block Diagram of the whole CSA circuit containing adders, multiplexers, and glue logic}
+See Fig.\ref{select} for the block diagram.
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.4]{select_adder.png}
+    \caption{N-bit Carry Select Adder Block Diagram}
+    \label{select}
+\end{figure}
+
+\subsection{Area, Complexity, \& Performance Tradeoffs}
+\paragraph{CRA} CRA is the slowest of the three adders, but it is the simplest one to implement. It requires only 16 full adders, so it occupies the minimum area among the three adders.
+\paragraph{CLA} CLA is the most complicated one to implement due to its complex logic. It works faster than the vanilla CRA, but also occupies larger area.
+\paragraph{CSA} CSA is the fastest of the three adders, but it consumes the most space. To illustrate, while a 16-bit CRA uses 16 full adders, a 16-bit CSA uses 28 full adders as well as three MUXes.
+
+\subsection{Performance of Adders}
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.7]{analysis_three_adders.png}
+    \caption{Comparison Analysis for Three Adders}
+    \label{analysis_three_adders}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.7]{analysis_three_adders_plot.png}
+    \caption{Comparison Analysis Plot for Three Adders}
+    \label{analysis_three_adders_plot}
+\end{figure}
+
+The data of main evaluation indicators are shown in Fig.\ref{analysis_three_adders} and plotted in Fig.\ref{analysis_three_adders_plot}.
+
+\section{Answers to Post-lab Questions}
+\subsection{Q1}
+%这个是你的部分，我觉得你可以具体看一下lab4和lab3的区别，然后在下面两套说辞2选1。
+% lab4使用少于lab3。
+% The design in Lab4 utilizes fewer amounts of LUTs and Flip-Flops than Lab3, while they are sharing the same amount of Memories used, which are both 0. An educated guess about the usage of these resources is that the 8-bit logic processor will occupy twice of the quantity of resources than that of a 4-bit logic processor. Based on observations, the design in Lab4 is better, as it makes use of fewer resources but realizes more complex functions.
+% lab4使用多于lab3。
+The design in Lab4 utilizes more amounts of LUTs and Flip-Flops than Lab3, while they are sharing the same amount of Memories used, which are both 0. An educated guess about the usage of these resources is that the 8-bit logic processor will occupy twice of the quantity of resources than that of a 4-bit logic processor. The design in Lab4 may be better, as when building circuits from codes, Quartus will help to optimize the most reasonable way of building.
+
+\subsection{Q2}
+The key factor in this question is to balance the complexity and time cost of carry-ripple components and carry-select components. Carry-ripple-adder has a low complexity and a high time cost, while carry-select-adder has a low time cost as well as a high complexity in circuits. From this lab, a 4x4 hierarchy may not be an ideal design, as making adder unit more likely to “ripple” is not as worthwhile as making it more likely to “select”, in case of dealing with both complexity and time cost. To determine the ideal hierarchy, we can try other hierarchy forms like 2x8 or 8x2, and each time observe the performance of complexity and time consuming to determine whether to make such a change.
+
+\subsection{Q3}
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.7]{detailed_analysis_adders.png}
+    \caption{Detailed Analysis of Adders (Without Normalization)}
+    \label{without_normalization}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.7]{detailed_analysis_adders_normalization.png}
+    \caption{Detailed Analysis of Adders (With Normalization)}
+    \label{with_normalization}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.6]{detailed_analysis_adders_plot.png}
+    \caption{Detailed Analysis Plot of Adders}
+    \label{detailed_plot}
+\end{figure}
+
+The corresponding data is shown in Fig.\ref{without_normalization} and Fig.\ref{with_normalization} in ways of without-normalization and with-normalization, respectively. The plot of Fig.\ref{without_normalization} is Fig.\ref{detailed_plot}.
+
+From these data, we can observe that both CLA and CSA utilize more designing elements and smaller max frequencies than CRA, i.e. having a higher complexity and a lower time cost, which are consistent with theoretical analysis. For powers, CRA, CSA, CLA have total power values increasing in such order, and such values mainly result from difference in complexity: the more complex the circuit is, the higher power it will consume. This is also the same result compared with theory.
+
+\section{Conclusion}
+In this lab, we have extended the logic processor from 4-bit registers in lab3 to 8-bit registers, as well as implementing 3 kinds of adders. All of these tasks were accomplished with a new programming language SystemVerilog. After doing this lab, we have learned how to implement basic modules and FSMs with SystemVerilog and grasped basic grammar and compiling process of it. These experiences may be further applied to facilitate the following lab sections.
+
+During this lab, the main bugs we encountered are not about the codes but about the usage of ModelSim and FPGA. These bugs mainly result from our carelessness when reading the guidance in IQT, and after we had read IQT carefully and thoroughly, we got to know the detailed procedure about how to cope with testbench, pin assignments, programmers and so forth. 
+
+% \begin{table}[h]
+%     \centering
+%     \begin{tabular}{|c|c|}
+%         \hline
+%         ABC & Z \\ \hline
+%         000 & 0 \\ \hline
+%         001 & 1 \\ \hline
+%         010 & 0 \\ \hline
+%         011 & 0 \\ \hline
+%         100 & 0 \\ \hline
+%         101 & 1 \\ \hline
+%         110 & 1 \\ \hline
+%         111 & 1 \\ \hline
+%     \end{tabular}
+%     \caption{Truth table for Part A.}
+%     \label{truthA}
+% \end{table}
+
+
+
+\end{document}

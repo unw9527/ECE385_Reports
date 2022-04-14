@@ -1,0 +1,14 @@
+\contentsline {section}{\numberline {1}Introduction}{1}{section.1}%
+\contentsline {section}{\numberline {2}Written Description and Diagrams of the AES encryptor/decryptor}{1}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Written description of the software encryptor}{1}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Written description of the hardware decryptor}{2}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Written description of the hardware/software interface}{2}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Block Diagram}{2}{subsection.2.4}%
+\contentsline {subsection}{\numberline {2.5}State Diagram of AES decryptor controller}{3}{subsection.2.5}%
+\contentsline {subsection}{\numberline {2.6}Module Descriptions}{3}{subsection.2.6}%
+\contentsline {section}{\numberline {3}Annotated Simulation of the AES decrypt}{8}{section.3}%
+\contentsline {section}{\numberline {4}Answers to Post-lab questions}{9}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Fill out the design resources and statistics table.}{9}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Which would you expect to be faster to complete encryption / decryption, the software or hardware? Is this what your results show?}{9}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}If you wanted to speed up the hardware, what would you do?}{9}{subsection.4.3}%
+\contentsline {section}{\numberline {5}Conclusion}{10}{section.5}%

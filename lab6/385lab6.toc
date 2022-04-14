@@ -1,0 +1,34 @@
+\contentsline {section}{\numberline {1}Introduction}{1}{section.1}%
+\contentsline {section}{\numberline {2}Written Description and Diagrams of SLC-3}{2}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Summary of Operation}{2}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Describe in words how the SLC-3 performs its functions}{2}{subsection.2.2}%
+\contentsline {paragraph}{ADD}{2}{section*.2}%
+\contentsline {paragraph}{ADDi}{2}{section*.3}%
+\contentsline {paragraph}{AND}{2}{section*.4}%
+\contentsline {paragraph}{ANDi}{2}{section*.5}%
+\contentsline {paragraph}{NOT}{2}{section*.6}%
+\contentsline {paragraph}{BR}{3}{section*.7}%
+\contentsline {paragraph}{JMP}{3}{section*.8}%
+\contentsline {paragraph}{JSR}{3}{section*.9}%
+\contentsline {paragraph}{LDR}{3}{section*.10}%
+\contentsline {paragraph}{STR}{3}{section*.11}%
+\contentsline {paragraph}{PAUSE}{3}{section*.12}%
+\contentsline {subsection}{\numberline {2.3}Block Diagram of slc3.sv}{3}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Written Description of all .sv modules}{3}{subsection.2.4}%
+\contentsline {subsection}{\numberline {2.5}Description of the Operations of the ISDU}{7}{subsection.2.5}%
+\contentsline {subsubsection}{\numberline {2.5.1}Declaration of Name of States}{7}{subsubsection.2.5.1}%
+\contentsline {subsubsection}{\numberline {2.5.2}Flip-Flop}{7}{subsubsection.2.5.2}%
+\contentsline {subsubsection}{\numberline {2.5.3}Initialization of Signals}{8}{subsubsection.2.5.3}%
+\contentsline {subsubsection}{\numberline {2.5.4}Flow Between States}{8}{subsubsection.2.5.4}%
+\contentsline {subsubsection}{\numberline {2.5.5}Signals Triggered in Each State}{8}{subsubsection.2.5.5}%
+\contentsline {subsection}{\numberline {2.6}State Diagram of ISDU.sv}{8}{subsection.2.6}%
+\contentsline {section}{\numberline {3}Simulations of SLC-3 Instructions}{8}{section.3}%
+\contentsline {section}{\numberline {4}Answers to Post-lab Questions}{8}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Post Lab Question 1}{8}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}What is MEM2IO used for, i.e. what is its main function?}{11}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}What is the difference between BR and JMP instructions?}{12}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}What is the purpose of the R signal in Patt and Patel? How do we compensate for the lack of the signal in our design? What implications does this have for synchronization?}{12}{subsection.4.4}%
+\contentsline {section}{\numberline {5}Conclusion}{12}{section.5}%
+\contentsline {section}{\numberline {A}Appendix}{13}{appendix.A}%
+\contentsline {subsection}{\numberline {A.1}Code for testbench\_report}{13}{subsection.A.1}%
+\contentsline {subsection}{\numberline {A.2}Code for memory\_contents\_report}{15}{subsection.A.2}%

@@ -1,0 +1,206 @@
+\documentclass[12pt]{article}
+% \usepackage[bottom=1.0in]{geometry}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage[backref]{hyperref}
+\pagestyle{fancy}
+\renewcommand{\headrulewidth}{0pt}
+
+\begin{document}
+\begin{titlepage}
+    \centering
+    {\Huge\bfseries ECE385\\\Large Fall 2021\\\Large Experiment 3}
+
+    \vspace{1cm}
+    
+    {\LARGE\bfseries A Logic Processor}
+    
+    \vspace{2cm}
+    
+    {\Large Kunle Li\\3190112150\\Zifei Han\\3190110304}
+    
+    \vfill
+    
+    {\large\itshape Section: L1 D225\\TA: Lianjie Wang}
+    \end{titlepage}
+\lhead{ECE385}
+\chead{Lab 3}
+\rhead{Li \& Han}
+
+\section{Introduction}
+In this lab, we design a bit-serial logic operation processor that can perform 8 different bit-wise operations and 4 different operations afterwards. These operations are performed on two 4-bit registers. 
+
+The 8 operations are done by a \textit{Computation Unit}, including AND, OR, XOR, SET HIGH and the corresponding four negated operations. The 4 operations afterwards are done by a \textit{Routing Unit}, including substituting $F$ (the output of the \textit{Computation Unit}) for A, or for B (the output of the two registers, separately); swapping A and B; do nothing.
+
+\section{Answers to Pre-lab Questions}
+\paragraph{A}
+We can simply use an XOR gate (See Fig.\ref{xor}) to realize the function described in the question. As we can see, if $A=0$, then $Z$ will be equal to $B$; if $A=1$, then $Z$ will be equal to the invert of $B$. For $B$ is the same.
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.06]{XOR.png}
+    \caption{The circuit to the first pre-lab question}
+    \label{xor}
+\end{figure}
+
+\paragraph{B}
+A modular design as above can help us use fewer components in the circuit, in turn make the circuit less error-prone. Simply by adding an XOR gate we can negate the 4 functions of the \textit{Computation Unit} and get the entire 8 functions much faster than implementing these functions one by one.
+
+Additionally, by decomposing the big circuit into many smaller parts, we can more easily find out the potential bugs than staring at the whole circuit. Besides, smaller components of a circuit can be tested in parallel, which will significantly save computation time. 
+
+\section{Operation of the Logic Processor}
+\paragraph{a}
+When doing parallel load: LoadA needs to be set HIGH when loading data to Register A; LoadB needs to be set HIGH when loading data to Register B.
+
+When doing serial load: SHIFT must be set to 1.
+\paragraph{b}
+When initializing the \textit{Computation Unit}, we need to set $F_0\sim F_2$, which are used to determine which functions we will implement with the ALU and take the two output from Reg.A and Reg.B as the input.
+
+When initializing the \textit{Routing Unit}, we need to set $R_0\sim R_1$, which are used to determine which functions we will implement with the \textit{Routing Unit} and take the three output $F,A,B$ from the \textit{Computation Unit} as the input.
+
+Fig.\ref{Computation and routing} is the detailed illustration of the corresponding functions of the two units described above for each of the input.
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.6]{initialize_Computing_routing_unit.png}
+    \caption{Truth tables for the \textit{Computation Unit} and the \textit{Routing Unit}}
+    \label{Computation and routing}
+\end{figure}
+
+\section{Written Description, Block Diagram \& State Machine Diagram of Logic Processor}
+\paragraph{a} There are mainly four components in the block diagram. Below is just a high-level description of each unit. Details see
+\subparagraph{Register Unit} 
+The \textit{Register Unit} consists of two 4-bit shift registers (74194), namely, A and B. These two registers are used to store the data that are going to be fed into the \textit{Computation Unit}.
+
+\subparagraph{Computation Unit} The \textit{Computation Unit} consists of a 4-to-1 MUX (74153), an XOR gate, and some gates that implement the operations such as AND. This unit can perform 8 different operations, including AND, OR, XOR and SET HIGH and the corresponding negated operations. The \textit{Computation Unit} will operate on $A$ and $B$, the output of the two registers, and select the operation based on the SELECT bits (namely, $F_0\sim F_2$).
+
+\subparagraph{Routing Unit} The \textit{Routing Unit} consists of a 4-to-1 MUX (74153). This unit can perform 4 different operations, including substituting $F$ (the output of the \textit{Computation Unit}) for A, or for B (the output of the two registers, separately); swapping A and B; do nothing. We also need to set $R_0\sim R_1$, the two SELECT bits, to determine which functions we will implement with the \textit{Routing Unit} and take the three output $F,A,B$ from the \textit{Computation Unit} as the input.
+
+\subparagraph{Control Unit} The \textit{control unit} consists of a counter (74169) and a D-flip-flop (7474) and a lot of gates. This unit takes three input LoadA, LoadB and Execute to determine the behaviors of the two registers. 
+
+\paragraph{b} See Fig.\ref{block diagram}.
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.6]{block_diagram.png}
+    \caption{The block diagram}
+    \label{block diagram}
+\end{figure} 
+\paragraph{c} See Fig.\ref{state diagram} for the state diagram. The state diagram is built based on Fig.\ref{mealy}.
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.5]{state_diagram.png}
+    \caption{The state machine diagram}
+    \label{state diagram}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.5]{mealy_machine.png}
+    \caption{The truth table of the Mealy machine}
+    \label{mealy}
+\end{figure}
+
+\section{Design Steps Taken \& Detailed Circuit Schematic Diagram}
+\subsection{Control Unit}
+The Control Unit is mainly used to control the behavior of the shift registers and itself, and we mainly use two intermediate control signals to achieve these functions respectively: “Shift” and “Q*” (which represents the “next state” in FSM). The circuit for this unit is shown below in Fig.\ref{control unit}.
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.8]{control_unit.png}
+    \caption{The circuit of the \textit{Control Unit}}
+    \label{control unit}
+\end{figure}
+
+First of all, we will use a counter which can automatically change its value along with the clock, so as to use its output $C_1$ and $C_0$ to determine the value for “Shift” and “Q*”. Note that here we should only start counting when “Shift” is 1, and when “Shift” is 0, the LDN of the counter will be 0 and thus the counter will take parallel inputs $D_3$ to $D_0$ (which are all 0 as shown). Then for “Shift”, according to the truth table given above, we can build a K-map for “Shift” (Fig.\ref{kmap shift}),
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=1]{kmap_shift.png}
+    \caption{The K-map of the shift registers}
+    \label{kmap shift}
+\end{figure}
+
+and after that we can easily draw the expression $Shift = C_1+C_0+ex Q'$. 
+
+For “Q*”, still based on the truth table, we have its corresponding K-map (Fig.\ref{Q*})
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=1]{kmap_q.png}
+    \caption{The K-map of Q*}
+    \label{Q*}
+\end{figure}
+
+and its expression $Q^*=C_0+C_1+ex$. This Q* will become the input of a D Flip-Flop, whose output is just Q. In this way, we can realize the reasonable changes between the two states of the FSM.
+
+\subsection{Shift Register Unit}
+The Shift Register Unit is used to store the inputs and results and the circuit diagram is shown below in Fig.\ref{shift}. 
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=1]{shift_reg.png}
+    \caption{The circuit of the shift registers}
+    \label{shift}
+\end{figure}
+We have two registers A and B, and they have almost the same functions. For register A, for instance, its parallel inputs are $D_3$ to $D_0$ which are given as program inputs; its series input is “A*”, which comes from the routing unit; the signals that will control the concrete functions are $SfA_1$ and $SfA_0$ (Refer to section 2 for more detail); its parallel outputs are “oa3”, “oa2”, “oa1” and “A4F”, in which “A4F” also acts as its series output. The two series output “A4F” and “B4F” are essential signals for the Computation Unit.
+
+\subsection{Computation Unit}
+The Computation Unit is used to choose which function we’ll operate for its input signals “A4F” and “B4F”. Its circuit diagram is shown below in Fig.\ref{cu}.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=1]{computation_unit.png}
+    \caption{The circuit of the \textit{Computation Unit}}
+    \label{cu}
+\end{figure}
+
+We use a 4-to-1 MUX controlled by $F_1$ and $F_0$ and an XOR gate (which keeps the output when $F_2=0$ and reverses the output when $F_2=1$) to generate the output of this unit “Fab”, as discussed in the lecture. This part of logic has realized what is shown by the truth table with inputs $F_2$ to $F_0$ given in Fig.\ref{mealy}.
+
+\subsection{Routing Unit}
+The Routing Unit is used to choose the operation we will do for “A4F”, “B4F” from the Shift Register Unit and “Fab” from the Computation Unit. Its circuit diagram is shown below in Fig.\ref{routing}. 
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=1]{routing_unit.png}
+    \caption{The circuit of the \textit{Routing Unit}}
+    \label{routing}
+\end{figure}
+
+Note that the chip used here is a 4-to-1 MUX, and it will choose two bits of the same subscript at one time (e.g. $1C_0$ and $2C_0$) rather than a single bit. The outputs of this unit are “Astar” and “Bstar”, which act as the series inputs of the registers in the Shift Register Unit. This part of logic has realized what is shown by the truth table with inputs $R_1$ and $R_0$ given in Fig.\ref{mealy}.
+
+\subsection{Items To Be Labeled}
+The inputs of the whole circuit include: LOAD A, LOAD B, $D_3$, $D_2$, $D_1$, $D_0$, EXECUTE, $F_2$, $F_1$, $F_0$, $R_1$, $R_0$.
+
+The outputs of the whole circuit include: $RA_3$, $RA_2$, $RA_1$, $RA_0$, $RB_3$, $RB_2$, $RB_1$, $RB_0$.
+
+Important intermediate signals (that can control the logic within or between units) include: Shift, Q, Q*, A4F, B4F, A*, B*, Fab, $C_1$, $C_0$.
+
+Important mode pins include: $S_1$ and $S_0$ in 74194, A and B in 74153, LDN in 74169, CLOCK in all chips.
+
+\subsection{Other Design Considerations}
+\label{tradeoff}
+The main consideration of this lab is to choose the category of FSM; that is, whether to use a Moore machine or a Mealy machine. In this lab, we eventually decided to use a Mealy Machine, as it has only two states and can be represented only by 1 bit, while a Moore Machine contains three states and should be represented by at least 2 bits. Besides, as a Mealy Machine can operate based on not only the current state but also the input, we can handle the whole working process of the FSM more easily. 
+
+\section{Bugs Encountered}
+\label{bugs}
+In this lab, the most essential bug we encountered is the order of controlling inputs that placed to the control signals of the chips. For example, in the Computation Unit, we initially connect $F_1$ to A and $F_2$ to B, regarding that $F_2$ is the LSB of $F$ (which is actually the MSB of $F$) and that the MUX will choose the set with subscript 1 when $AB=01$ (which is actually $BA=01$). Such bugs simply come from the misunderstanding about the lab manual and the datasheet, and they have been easily eliminated since we read the lab manual and the datasheet more carefully. 
+
+
+\section{Answers to Post-lab Questions}
+The difficulties we encountered during debugging can be found in Section.\ref{bugs}.
+
+The modular design we adapt in our circuit helps us debug faster and use fewer components in our circuit (e.g. Use an XOR to implement the negated functions).
+
+We decide to use the Mealy machine rather than the Moore machine, since it is easier to design: the Mealy machine contains only 2 states, which can be represented using only one bit. However, we need 2 bits to represent the state if we use a Moore machine. One disadvantage of the Mealy machine is that it is harder to design than the Moore Machine. Details can be found in Section.\ref{tradeoff}.
+
+\section{Conclusion}
+In this lab, we design a logic processor which can implement 8 different bit-wise operations. Besides, the output of these functions can be further fed as input to generate 4 different functions. Details are all covered in the corresponding sections.
+
+\section{Waveform}
+See Fig.\ref{waveform}.
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.4]{waveform.png}
+    \caption{The waveform}
+    \label{waveform}
+\end{figure}
+
+\end{document}

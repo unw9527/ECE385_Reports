@@ -1,0 +1,239 @@
+\documentclass[11pt]{article}
+% \usepackage[bottom=1.0in]{geometry}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{amsmath}
+\usepackage{tabularx}
+\usepackage[backref]{hyperref}
+\pagestyle{fancy}
+\renewcommand{\headrulewidth}{0pt}
+
+\begin{document}
+\begin{titlepage}
+    \centering
+    {\Huge\bfseries ECE385\\\Large Fall 2021\\\Large Experiment 5}
+
+    \vspace{1cm}
+    
+    {\LARGE\bfseries An 8-Bit Multiplier in SystemVerilog}
+    
+    \vspace{2cm}
+    
+    {\Large Kunle Li\\3190112150\\Zifei Han\\3190110304}
+    
+    \vfill
+    
+    {\large\itshape Section: L1 D225\\TA: Lianjie Wang}
+    \end{titlepage}
+\lhead{ECE385}
+\chead{Lab 5}
+\rhead{Li \& Han}
+
+\tableofcontents
+\section{Introduction}
+In this lab, we design a multiplier for two 8-bit 2’s complement numbers in SystemVerilog. This multiplier can also perform operations like positive times positive, positive times negative, negative times positive and negative times negative, as well as consecutive multiplication.
+
+\section{The Answer to the Pre-lab Question}
+See Table.\ref{prelab}.
+\begin{table*}[h]
+    \centering
+    \begin{tabularx}{\textwidth}{|l|c|c|c|c|X|}
+        \hline
+        \textbf{Function} & \textbf{X} & \textbf{A} & \textbf{B} & \textbf{M} & \textbf{Comments for the next step} \\ \hline
+        Clear A, Load B & 0 & 00000000 & 00000111 & 1 & Since M = 1, multiplicand (available
+        from switches S) will be added to
+        A.
+        \\ \hline
+        ADD & 1 & 11000101 & 00000111 & 1 & Shift XAB by one bit after ADD complete.\\ \hline
+        SHIFT & 1 & 11100010 & 10000011 & 1 & Add S to A since M = 1.\\ \hline
+        ADD & 1 & 10100111 & 10000011 & 1 & Shift XAB by one bit after ADD complete.\\ \hline
+        SHIFT & 1 & 11010011 & 11000001 & 1 & Add S to A since M = 1.\\ \hline
+        ADD & 1 & 10011000 & 11000001 & 1 & Shift XAB by one bit after ADD complete.\\ \hline
+        SHIFT & 1 & 11001100 & 01100000 & 0 & Do not add S to A since M = 0. Shift XAB.\\ \hline
+        SHIFT & 1 & 11100110 & 00110000 & 0 & Do not add S to A since M = 0. Shift XAB.\\ \hline
+        SHIFT & 1 & 11110011 & 00011000 & 0 & Do not add S to A since M = 0. Shift XAB.\\ \hline
+        SHIFT & 1 & 11111001 & 10001100 & 0 & Do not add S to A since M = 0. Shift XAB.\\ \hline
+        SHIFT & 1 & 11111100 & 11000110 & 0 & Do not add S to A since M = 0. Shift XAB.\\ \hline
+        SHIFT & 1 & 11111110 & 01100011 & 1 & $8^{th}$ shift done. Stop. 16-bit Product in AB.\\ \hline
+
+    \end{tabularx}
+    \caption{The answer to the pre-lab question}
+    \label{prelab}
+\end{table*}
+
+\section{Written description and diagrams of multiplier circuit}
+\subsection{Summary of operation}
+\paragraph{How operands are loaded}
+We first set the multiplier using the switches on FPGA. After \verb|ClearA_LoadB| button is pressed, the number represented by the switches will be loaded into Register B, and whatever in A will be cleared. Then we adjust the switches to represent the other operand. After pressing \verb|run| button, what is stored in B will be multiplied by the number represented by the switches, with the latter stored in Register A.
+
+\paragraph{How the multiplier computes its result}
+The least significant bit of A will be stored in M. If M is 0, then we directly shift without adding. If M is 1, we first add the initial value of A to Register A, then we shift. We also create an extend bit X, which holds the sign of the output of the addition (that is the reason why a 9-bit adder is used). 
+
+When shifting, we regard XAB together as a number and do the right shift, and X continues to hold its original value. After 8 shifts are done, which means all bits in Register B have been shifted out, we finish the process of multiplication.
+\paragraph{How the result is stored}
+The result is stored in Register A and B, with the upper 8 bits stored in A and the lower 8 bits stored in B. In other words, AB together is the result.
+
+\subsection{Top Level Block Diagram}
+See Fig.\ref{top_level}
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.4]{top_level_block_diagram.png}
+    \caption{The top level block diagram}
+    \label{top_level}
+\end{figure}
+
+\subsection{Written Description of .sv Modules}
+\begin{itemize}
+    \item 
+    \begin{itemize}
+        \item \textbf{Module: lab5\_toplevel.sv}
+        \item Inputs: Clk, Reset, Run, ClearA\_LoadB, [7:0] S
+        \item Outputs: X, [6:0]	AhexU, [6:0]	AhexL, [6:0]	BhexU, [6:0]	BhexL, [7:0]	Aval, [7:0]	Bval
+        \item Description: This module is the top level module for the multiplier. It will receive Clk, Reset, Run, ClearA\_LoadB, S[7:0] as inputs, perform the multiplication, store the result in Register A and B, and then display the result on the FPGA.
+        \item Purpose: This module instantiate all other modules and make them all function.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: multiplier.sv}
+        \item Inputs: Clk, Reset, Execute, ClearA\_LoadB, Mnow, Mfut
+        \item Outputs: fn, Shift, LDA, LDB, CLRA, CLRB
+        \item Description: This is the control unit shown in the lab manual, which uses M to determine whether to shift or to add.
+        \item Purpose: Control the operations performed based on the state machine we design.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: register.sv}
+        \item Inputs: Clk, Reset, Shift\_In, Load, Shift\_En, [7:0]  D
+        \item Outputs: Shift\_Out, [7:0]  Data\_Out
+        \item Description: This is an 8-bit shift register, which is directly copied from lab 4.
+        \item Purpose: There are 2 registers instantiated from this module, namely, A and B, which store two operands initially and the result of multiplication at last.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: Xbit.sv}
+        \item Inputs: Clk, LOAD, Reset, D
+        \item Outputs: Q
+        \item Description: This module is extended from the slides Dreg. 
+        \item Purpose: Stores the sign bit of the addition into X.
+        
+        \textbf{Note that we combine the modules full adder and 9-bit adder into this .sv file as well.}
+        \item \textbf{Module: full\_adder}
+        \item Inputs: x,y,z
+        \item Outputs: s,c
+        \item Description: This is just a simple full adder.
+        \item Purpose: Take in a carry-in bit and two operand bits, return the result bit S and one carry-out bit.
+        \item \textbf{Module: ADD\_SUB9}
+        \item Inputs: A, B, fn
+        \item Outputs: [8:0] S
+        \item Description: This module is extended from the slides ADD\_SUB5 from lab 4, which combines 9 full adders into a CRA.
+        \item Purpose: Add two 8-bit 2’s complement numbers, or subtract one 8-bit 2’s complement number from another.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: HexDriver.sv}
+        \item Inputs: [3:0]  In0
+        \item Outputs: [6:0]  Out0
+        \item Description: This module drives the LED display on the FPGA board.
+        \item Purpose: Guarantee that the FPGA board can display the operands and the result.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: flip\_flop.sv}
+        \item Inputs: Clk, D
+        \item Outputs: Q
+        \item Description: This module creates a D Flip-Flop.
+        \item Purpose: Reset, Run and ClearA\_LoadB signal are only passed when the clock edge is positive.
+    \end{itemize}
+
+    \item
+    \begin{itemize}
+        \item \textbf{Module: testbench.sv}
+        \item Inputs: None
+        \item Outputs: None
+        \item Description: The official testbench.
+        \item Purpose: Test whether we have correctly implement everything.
+    \end{itemize}
+
+\end{itemize}
+
+
+\subsection{State Diagram for Control Unit}
+See Fig.\ref{state_diagram}
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.2]{State-machine.jpg}
+    \caption{The state diagram}
+    \label{state_diagram}
+\end{figure}
+
+\section{Pre-lab Simulation Waveforms}
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.3]{waveform_test1.png}
+    \caption{Waveform for test 1}
+    \label{test1}
+\end{figure}
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.4]{waveform_test2.jpg}
+    \caption{Waveform for test 2}
+    \label{test2}
+\end{figure}
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.4]{waveform_test3.jpg}
+    \caption{Waveform for test 3}
+    \label{test3}
+\end{figure}
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.4]{waveform_test4.jpg}
+    \caption{Waveform for test 4}
+    \label{test4}
+\end{figure}
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.45]{waveform_test5.jpg}
+    \caption{Waveform for test 5}
+    \label{test5}
+\end{figure}
+The simulation waveforms are shown in Fig.\ref{test1}, \ref{test2}, \ref{test3}, \ref{test4} and \ref{test5}, for the multiply expressions $7\times 59$, $7\times -59$, $-7\times 59$, $-7\times -59$ and $-2\times -2\times -2\times -2\times -2$ respectively. The results are shown as a combination of Aval and Bval, i.e. the results for these five waveforms are $000000110011101, 1111111001100011, 1111111001100011, 000000110011101$ and $1111111111100000$ respectively.
+
+\section{Answers to Post-lab Questions}
+\subsection{Q1}
+The data about the multiplier is shown in Table.\ref{analysis}. To optimize our design, we may take 3 possible methods:
+\begin{enumerate}
+    \item Use other kinds of adders instead of a carry-ripple one;
+    \item Apply an appropriate hierarchy of adders, e.g. implement 8 full-adders into a 4x2 hierarchy;
+    \item Simplify the diagram for our FSM to assemble a few states with similar usages. 
+\end{enumerate}
+
+\subsection{Q2}
+\subsubsection{What is the purpose of the X register. When does the X register get set/cleared?}
+X is the sign extending bit of the 9-bit adder, and it works as the result of an adding or a subtracting operation. The value of X at the beginning follows the sign of A: if A is positive, X is initialized to 0; otherwise it is initialized to 1. During the procedure of multiplication, X will be changed to the opposite value if the sign bit of B is 1, or will stay at its initialized value for the whole process.
+
+\subsubsection{What are the limitations of continuous multiplications? Under what circumstances will the implemented algorithm fail?}
+The main limitation is that when we do consecutive multiplication, we have to compress a 16-bit answer to an 8-bit operand, and sometimes this cannot be done when the result is out of range.
+
+\subsubsection{What are the advantages (and disadvantages?) of the implemented multiplication algorithm over the pencil-and-paper method discussed in the introduction?}
+Compared with ``pencil-and-paper'' method, this algorithm applies a sign extending bit and the uses a subtract operation when dealing with this bit. Its advantage is that the codes can be clearer and easier to write and read, while its disadvantage is that it uses more functional blocks and thus has a higher complexity.
+
+\section{Conclusion}
+In this lab, we have implemented a multiplier using SystemVerilog, which receives two 8-bit operands and returns an answer of 16 bits. We have learned how to make use of 2’s complement numbers and the theoretical process of conducting a multiply operation. Besides, given in the slides, sample codes that implementing flip-flops, 5-bit-with-sign-extension adders and so forth helped us a lot for build modules in this lab and these codes may work as a more important role in future labs.
+
+During this lab, the main bug we encountered is that we cannot finish the tests in testbench as in lab4. We finally notice that the simulation time is set to 1000 ns as default by us (because this is what we used in lab4), but we cannot finish the whole testbench now with such a short period of time. To resolve such a problem, we simply check the other option to simulate until all vector stimuli are used. 
+
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.5]{Analysis_of_the_multiplier_implemented.png}
+    \caption{Analysis of the multiplier implemented}
+    \label{analysis}
+\end{figure}
+\end{document}

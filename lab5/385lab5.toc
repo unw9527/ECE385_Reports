@@ -1,0 +1,18 @@
+\contentsline {section}{\numberline {1}Introduction}{1}{section.1}%
+\contentsline {section}{\numberline {2}The Answer to the Pre-lab Question}{1}{section.2}%
+\contentsline {section}{\numberline {3}Written description and diagrams of multiplier circuit}{2}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Summary of operation}{2}{subsection.3.1}%
+\contentsline {paragraph}{How operands are loaded}{2}{section*.2}%
+\contentsline {paragraph}{How the multiplier computes its result}{2}{section*.3}%
+\contentsline {paragraph}{How the result is stored}{3}{section*.4}%
+\contentsline {subsection}{\numberline {3.2}Top Level Block Diagram}{3}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Written Description of .sv Modules}{3}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}State Diagram for Control Unit}{5}{subsection.3.4}%
+\contentsline {section}{\numberline {4}Pre-lab Simulation Waveforms}{5}{section.4}%
+\contentsline {section}{\numberline {5}Answers to Post-lab Questions}{6}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Q1}{6}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Q2}{7}{subsection.5.2}%
+\contentsline {subsubsection}{\numberline {5.2.1}What is the purpose of the X register. When does the X register get set/cleared?}{7}{subsubsection.5.2.1}%
+\contentsline {subsubsection}{\numberline {5.2.2}What are the limitations of continuous multiplications? Under what circumstances will the implemented algorithm fail?}{7}{subsubsection.5.2.2}%
+\contentsline {subsubsection}{\numberline {5.2.3}What are the advantages (and disadvantages?) of the implemented multiplication algorithm over the pencil-and-paper method discussed in the introduction?}{8}{subsubsection.5.2.3}%
+\contentsline {section}{\numberline {6}Conclusion}{8}{section.6}%
